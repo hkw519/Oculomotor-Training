@@ -91362,6 +91362,10 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       const value = (key) => values[key] ?? "";
       return `
         <div class="field-grid">
+          <div class="field" style="grid-column:1 / -1">
+            <button type="button" class="secondary-button" data-fill-work-screen>一鍵填入工作螢幕（48.5 × 27.5 cm）</button>
+            <p class="field-hint">自動填入寬 48.5 cm、高 27.5 cm；觀看距離請自行輸入。居家螢幕請自行量測後填入。</p>
+          </div>
           <div class="field">
             <label for="screen-width-cm">Physical screen width</label>
             <div class="input-wrap">
@@ -91416,6 +91420,18 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         output.innerHTML = result.errors.length ? calibrationMetricsMarkup(null) : calibrationMetricsMarkup(createCalibration(result.values));
       };
       form.addEventListener("input", update);
+      const workButton = form.querySelector("[data-fill-work-screen]");
+      if (workButton) {
+        workButton.addEventListener("click", () => {
+          const w = form.elements.namedItem("screenWidthCm");
+          const h = form.elements.namedItem("screenHeightCm");
+          if (w) w.value = 48.5;
+          if (h) h.value = 27.5;
+          update();
+          const d = form.elements.namedItem("viewingDistanceCm");
+          if (d && !d.value) d.focus();
+        });
+      }
       update();
     }
 
