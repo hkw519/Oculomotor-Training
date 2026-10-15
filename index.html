@@ -90370,6 +90370,18 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         short: "Number grid + side flashes",
         description: "Click numbers in order in the central grid while reporting brief flashes on the side, without looking at them."
       },
+      reaction: {
+        code: "REACTION",
+        name: "Reaction Jumps",
+        short: "Target jumps; find it and click on the target",
+        description: "Keep your head still. When the ball jumps, find it quickly and left-click only when the designated number (or arrow) appears inside."
+      },
+      distractor: {
+        code: "DISTRACTOR",
+        name: "Distractor Tracking",
+        short: "Bright target among darker drifting balls",
+        description: "Keep your head still and follow only the brightest ball while darker balls drift around it."
+      },
       gaze: {
         code: "GAZE",
         name: "Gaze Stability Training",
@@ -90378,8 +90390,8 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       }
     };
     // 僅開放 Gaze Stability Training (VOR 中央目標模組已隱藏)
-    const ENABLED_MODULES = ["gaze"];
-    const isNoTrackModule = (k) => k === "dual" || k === "gaze";
+    const ENABLED_MODULES = ["gaze", "pursuit", "distractor", "reaction"];
+    const isNoTrackModule = (k) => k === "dual" || k === "gaze" || k === "distractor" || k === "reaction";
 
     const ALL_DIRECTIONS = [
       "leftUp", "middleUp", "rightUp",
@@ -90421,6 +90433,17 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         eccMinDeg: 15, eccMaxDeg: 22, vertMinDeg: -10, vertMaxDeg: 5,
         stimDeg: 2, stimMs: 300, isiMinSec: 2, isiMaxSec: 5, respWindowMs: 1500,
         distractorPct: 0,
+        background: "plain", gratingSpeed: 2, gratingContrast: "low", gratingBarDeg: 1, gratingDir: "horizontal"
+      },
+      // 反應跳視：目標球瞬間跳位，球內數字(0–9)/箭頭，Go/No-go 以滑鼠左鍵作答
+      reaction: {
+        totalSec: 60, stimulus: "number", responseMode: "click", targetDigit: "random", targetArrow: "right", targetPct: 40,
+        ballDeg: 2, arrowPct: 60, intervalMs: 1500, jitterPct: 20, minJumpDeg: 8, rangeDeg: 20,
+        background: "plain", gratingSpeed: 2, gratingContrast: "low", gratingBarDeg: 1, gratingDir: "horizontal"
+      },
+      // 干擾追視：最亮目標球 + 較暗干擾球，頭不動
+      distractor: {
+        totalSec: 60, ballDeg: 1, distractorCount: 3, distractorContrast: 50, targetSpeed: 8, distractorSpeed: 8,
         background: "plain", gratingSpeed: 2, gratingContrast: "low", gratingBarDeg: 1, gratingDir: "horizontal"
       },
       // 凝視穩定訓練 (VOR x1 viewing / dynamic visual acuity 範式)；刺激固定在螢幕中央
@@ -91604,10 +91627,14 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       const gazeLine = gs
         ? `<span style="display:block; margin-top:3px; color:#fff">凝視穩定：命中 ${gs.hits}/${gs.targets}${gs.hit_rate_pct != null ? `（${gs.hit_rate_pct}%）` : ""} · 平均反應 ${gs.mean_rt_ms ?? "–"} ms · 誤按 ${gs.false_alarm_nontarget + gs.false_alarm_no_stimulus} · d′ ${gs.d_prime ?? "–"}</span>`
         : "";
+      const rjs = session.reaction && session.reaction.summary;
+      const reactionLine = rjs
+        ? `<span style="display:block; margin-top:3px; color:#fff">反應跳視：正確 ${rjs.correct}/${rjs.trials}${rjs.accuracy_pct != null ? `（${rjs.accuracy_pct}%）` : ""} · 中位反應 ${rjs.median_rt_ms ?? "–"} ms · 遺漏 ${rjs.misses}${rjs.false_alarms != null ? ` · 誤按 ${rjs.false_alarms}` : ""} · 分級建議：${session.reaction.grade ? session.reaction.grade.label : "–"}</span>`
+        : "";
       return `
         <div class="session-banner ${completed ? "" : "is-aborted"}">
           <div class="session-copy">
-            <div><strong>${module.code} ${completed ? "complete" : "stopped"}</strong><span>${reasonLabels[session.end_reason] || session.end_reason} · ${formatNumber(session.actual_duration_ms / 1000, 1)} seconds · ${session.completed_targets || 0} completed targets</span>${staminaLine}${dualLine}${gazeLine}${sacLine}<span data-upload-status>${uploadStatusText()}</span></div>
+            <div><strong>${module.code} ${completed ? "complete" : "stopped"}</strong><span>${reasonLabels[session.end_reason] || session.end_reason} · ${formatNumber(session.actual_duration_ms / 1000, 1)} seconds · ${session.completed_targets || 0} completed targets</span>${staminaLine}${dualLine}${gazeLine}${reactionLine}${sacLine}<span data-upload-status>${uploadStatusText()}</span></div>
           </div>
           <div style="display:flex; gap:8px; flex-shrink:0;">
             <button class="ghost-button" type="button" data-export-session>Export JSON</button>
@@ -91746,6 +91773,8 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
     function moduleFormFields(moduleKey, settings) {
       if (moduleKey === "dual") return dualFormFields(settings);
       if (moduleKey === "gaze") return gazeFormFields(settings);
+      if (moduleKey === "distractor") return distractorFormFields(settings);
+      if (moduleKey === "reaction") return reactionFormFields(settings);
       const isVor = moduleKey === "vor";
       const currentArcmin = Number(settings.ballArcmin) || (settings.ballArcsec ? Number(settings.ballArcsec) / 60 : 60);
       const currentDeg = (currentArcmin / 60).toFixed(2);
@@ -91923,6 +91952,8 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
     function readModuleSettings(form, moduleKey) {
       if (moduleKey === "dual") return readDualSettings(form);
       if (moduleKey === "gaze") return readGazeSettings(form);
+      if (moduleKey === "distractor") return readDistractorSettings(form);
+      if (moduleKey === "reaction") return readReactionSettings(form);
       const isVor = moduleKey === "vor";
       const fieldsByModule = {
         vor: ["ballArcmin", "changeMs", "totalSec"],
@@ -92170,6 +92201,20 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
 
     function updateModulePreview(form, moduleKey, extra = {}) {
       const output = form.querySelector("#target-preview");
+      if (moduleKey === "reaction") {
+        const g = readReactionSettings(form);
+        output.innerHTML = g.errors.length
+          ? `<span>反應跳視</span><strong>請修正：${escapeHtml(g.errors.join("、"))}</strong>`
+          : `<span style="line-height:1.6">${escapeHtml(reactionPreviewText(g.values))}</span>`;
+        return;
+      }
+      if (moduleKey === "distractor") {
+        const g = readDistractorSettings(form);
+        output.innerHTML = g.errors.length
+          ? `<span>干擾追視</span><strong>請修正：${escapeHtml(g.errors.join("、"))}</strong>`
+          : `<span style="line-height:1.6">${escapeHtml(distractorPreviewText(g.values))}</span>`;
+        return;
+      }
       if (moduleKey === "gaze") {
         const g = readGazeSettings(form);
         output.innerHTML = g.errors.length
@@ -92323,11 +92368,15 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         dual: [`${s.totalSec} 秒`, `${s.gridSize}×${s.gridSize} 方格`, `${{ right: "右", left: "左", both: "兩" }[s.side] || "右"}側 ${s.eccMinDeg}–${s.eccMaxDeg}°`,
           s.respMode === "patient" ? "個案按鍵" : "治療師按鍵", Number(s.distractorPct) > 0 ? `干擾 ${s.distractorPct}%` : null,
           { plain: "純黑", grating: "移動條紋", busy: "雜亂" }[s.background] || "純黑"],
+        reaction: [`${s.totalSec} 秒`, s.stimulus === "arrow" ? "箭頭" : "數字 0–9", `間隔 ${s.intervalMs} ms`, `球 ${s.ballDeg}°`, `跳視 ≥ ${s.minJumpDeg}°`,
+          { plain: "純黑", grating: "移動條紋", busy: "雜亂" }[s.background] || "純黑"],
+        distractor: [`${s.totalSec} 秒`, `干擾 ${s.distractorCount} 顆`, `亮度 ${s.distractorContrast}%`, `目標 ${s.targetSpeed}°/s`,
+          { plain: "純黑", grating: "移動條紋", busy: "雜亂" }[s.background] || "純黑"],
         gaze: [`${s.totalSec} 秒`, { none: "頭不動", yaw: "左右轉頭", pitch: "上下點頭" }[s.headMode] || "", s.headMode !== "none" ? `${s.paceHz} Hz (${Math.round(s.paceHz * 120)} bpm)` : null,
           `目標 ${{ up: "↑", down: "↓", left: "←", right: "→" }[s.targetArrow] || "→"}`, `${s.arrowDeg}°`,
           { plain: "純黑", grating: "移動條紋", busy: "雜亂" }[s.background] || "純黑"]
       }[moduleKey] || [];
-      if (moduleKey === "dual" || moduleKey === "gaze") return parts.filter(Boolean).join(" · ");
+      if (moduleKey === "dual" || moduleKey === "gaze" || moduleKey === "distractor" || moduleKey === "reaction") return parts.filter(Boolean).join(" · ");
       return [...parts, bg].filter(Boolean).join(" · ");
     }
 
@@ -94465,7 +94514,9 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       pursuit: "Pursuit 平順追視",
       fixation: "Fixation 邊緣注視",
       dual: "Dual 中央方格＋周邊閃現",
-      gaze: "Gaze 凝視穩定訓練"
+      gaze: "Gaze 凝視穩定訓練",
+      distractor: "Distractor 干擾追視",
+      reaction: "Reaction 反應跳視"
     };
 
     function dualResponseInstruction(s) {
@@ -94481,7 +94532,9 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       pursuit: "頭保持不動，眼睛平順地跟著移動的目標。",
       fixation: "頭保持不動，眼睛跟著目標移到邊緣後盯住，直到目標回到中央。",
       dual: "用滑鼠依序點中央方格中的數字 1、2、3…，完成後會出現新的方格。",
-      gaze: "眼睛盯住中央的點，頭部跟著節拍移動，看到指定的箭頭時按空白鍵。"
+      gaze: "眼睛盯住中央的點，頭部跟著節拍移動，看到指定的箭頭時按空白鍵。",
+      distractor: "頭保持不動，眼睛只追最亮的白色球，不要被較暗的球帶走。",
+      reaction: "頭保持不動，球跳到新位置後盡快找到它；只有看到指定的數字（或箭頭）時按滑鼠左鍵。"
     };
 
     function gazeResponseInstruction(s) {
@@ -95784,7 +95837,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       show_progress_bar: false,
       default_iti: 0,
       on_data_update(data) {
-        if (data.trial_type === "eye-movement-training" || data.trial_type === "dual-task-training" || data.trial_type === "gaze-stability-training") queueTrainingUpload(data, jsPsych);
+        if (data.trial_type === "eye-movement-training" || data.trial_type === "dual-task-training" || data.trial_type === "gaze-stability-training" || data.trial_type === "distractor-tracking" || data.trial_type === "reaction-jumps") queueTrainingUpload(data, jsPsych);
         if (data.trial_type === "symptom-check" && AppState.profile.symptoms.upload) queueTrainingUpload(data, jsPsych);
       },
       on_interaction_data_update(data) {
@@ -95851,6 +95904,696 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       settings: () => AppState.pending.settings,
       calibration: () => AppState.pending.calibration,
       zone: () => AppState.pending.zone,
+      preset_info: () => AppState.pending.presetInfo,
+      fullscreen_entered: () => AppState.pending.fullscreenEntered,
+      on_finish(data) {
+        AppState.lastSession = { ...data };
+        AppState.pending = null;
+        afterTrainingRound(data);
+      }
+    };
+    // ════════════════════════════════════════════════════
+    // ██  干擾追視 (Distractor Tracking)
+    //     最亮的白色目標球沿直線平順移動並於邊界反彈；較暗的干擾球隨機漂移。
+    //     頭保持不動，只用眼睛追最亮的目標，不被干擾球帶走。由少量干擾逐步增加。
+    //     無按鍵作業；僅以 ESC 停止，不使用眼動儀。
+    // ════════════════════════════════════════════════════
+    function distractorFormFields(s) {
+      const sectionTitle = (text) => `<h3 class="span-all" style="grid-column:1/-1; margin:14px 0 0; font-size:16px">${text}</h3>`;
+      return `
+        ${numberField({ id: "total-sec", name: "totalSec", label: "訓練總時長 (Total duration)", value: s.totalSec, unit: "sec", hint: "建議每回 30–60 秒，症狀上升即停止" })}
+        ${numberField({ id: "ball-deg", name: "ballDeg", label: "球大小 (Ball size)", value: s.ballDeg, unit: "°", hint: "目標與干擾球相同大小；1° ≈ 60 arcmin" })}
+        ${sectionTitle("干擾")}
+        ${numberField({ id: "distractor-count", name: "distractorCount", label: "干擾球數量", value: s.distractorCount, unit: "顆", hint: "0–12；建議由 2–3 顆起，每次只增加 1–2 顆" })}
+        ${numberField({ id: "distractor-contrast", name: "distractorContrast", label: "干擾球亮度", value: s.distractorContrast, unit: "%", hint: "相對目標亮度 (10–90%)；越接近 100% 越難分辨" })}
+        ${sectionTitle("速度")}
+        ${numberField({ id: "target-speed", name: "targetSpeed", label: "目標速度", value: s.targetSpeed, unit: "°/s", hint: "平順追視建議由 5–10°/s 起" })}
+        ${numberField({ id: "distractor-speed", name: "distractorSpeed", label: "干擾球速度", value: s.distractorSpeed, unit: "°/s", hint: "可與目標相近或較快" })}
+        ${sectionTitle("背景")}
+        ${optionButtons("background", "背景干擾", [
+          ["plain", "純黑", "入門"],
+          ["grating", "移動條紋", "動態條紋"],
+          ["busy", "雜亂背景", "靜態灰階圖形"]
+        ], s.background === "grating" || s.background === "busy" ? s.background : "plain", 3)}
+        <div class="field-grid span-all" id="grating-fields" style="grid-column:1/-1; ${s.background === "grating" ? "" : "display:none"}">
+          ${numberField({ id: "grating-speed", name: "gratingSpeed", label: "條紋速度", value: s.gratingSpeed, unit: "°/s", hint: "移動速度" })}
+          ${numberField({ id: "grating-bar", name: "gratingBarDeg", label: "條紋寬度", value: s.gratingBarDeg, unit: "°", hint: "單一條紋寬度" })}
+          ${optionButtons("gratingContrast", "條紋對比", [["low", "低"], ["medium", "中"], ["high", "高"]], s.gratingContrast, 3)}
+          ${optionButtons("gratingDir", "移動方向", [["horizontal", "水平移動"], ["vertical", "垂直移動"]], s.gratingDir, 2)}
+        </div>`;
+    }
+
+    function readDistractorSettings(form) {
+      const result = readPositiveNumbers(form, ["totalSec", "ballDeg", "distractorContrast", "targetSpeed", "distractorSpeed", "gratingSpeed", "gratingBarDeg"]);
+      const value = (name) => form.elements.namedItem(name)?.value;
+      const count = Math.round(Number(value("distractorCount")));
+      Object.assign(result.values, {
+        distractorCount: Number.isFinite(count) ? count : NaN,
+        background: ["plain", "grating", "busy"].includes(value("background")) ? value("background") : "plain",
+        gratingContrast: ["low", "medium", "high"].includes(value("gratingContrast")) ? value("gratingContrast") : "low",
+        gratingDir: value("gratingDir") === "vertical" ? "vertical" : "horizontal"
+      });
+      const v = result.values;
+      if (!(v.distractorCount >= 0 && v.distractorCount <= 12)) result.errors.push("干擾球數量 (0–12)");
+      if (v.distractorContrast && (v.distractorContrast < 10 || v.distractorContrast > 90)) result.errors.push("干擾球亮度 (10–90%)");
+      if (v.targetSpeed && v.targetSpeed > 60) result.errors.push("目標速度 (≤ 60°/s)");
+      if (v.distractorSpeed && v.distractorSpeed > 60) result.errors.push("干擾球速度 (≤ 60°/s)");
+      return result;
+    }
+
+    function distractorPreviewText(v) {
+      return `${v.distractorCount} 顆干擾球 (亮度 ${v.distractorContrast}%)；目標 ${v.targetSpeed}°/s、干擾 ${v.distractorSpeed}°/s。` +
+        "進階順序建議：干擾球數量 → 干擾亮度提高 → 速度加快 → 背景干擾；一次只改一個條件，頭保持不動。";
+    }
+
+    function distractorResponseInstruction() {
+      return "頭保持不動，眼睛只追最亮的白色球，不要被較暗的球帶走。不舒服時按 ESC 停止。";
+    }
+
+    class DistractorTrackingPlugin {
+      constructor(jsPsych) { this.jsPsych = jsPsych; }
+
+      trial(displayElement, trial) {
+        const s = trial.settings;
+        const calibration = trial.calibration;
+        const presetInfo = trial.preset_info || null;
+        const screenPixels = currentScreenPixels();
+        const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        let ended = false;
+        let sessionStart = null;
+        let rafId = null;
+        const timers = new Set();
+        const later = (fn, ms) => { const id = window.setTimeout(() => { timers.delete(id); fn(); }, Math.max(0, ms)); timers.add(id); return id; };
+
+        displayElement.innerHTML = `
+          <section id="training-stage" class="training-stage" style="cursor:none" role="application" aria-label="Distractor tracking in progress">
+            <div id="dt-balls"></div>
+            <div id="dt-hint" style="position:absolute; left:0; right:0; bottom:4vh; text-align:center; color:#888; font-size:clamp(14px,1.6vw,20px); pointer-events:none;"></div>
+            <span class="sr-only">Training has started. Press Escape to stop.</span>
+          </section>`;
+        const stage = displayElement.querySelector("#training-stage");
+        const layer = displayElement.querySelector("#dt-balls");
+        const hint = displayElement.querySelector("#dt-hint");
+        hint.textContent = distractorResponseInstruction();
+
+        const W = stage.getBoundingClientRect().width || window.innerWidth;
+        const H = stage.getBoundingClientRect().height || window.innerHeight;
+        const pxPerDeg = degToPx(1, "x", calibration, screenPixels);
+        applyDualBackground(stage, s, pxPerDeg, Math.round(W), Math.round(H));
+
+        const ballPx = Math.max(8, s.ballDeg * pxPerDeg);
+        const margin = ballPx / 2 + 4;
+        const minX = margin, maxX = W - margin, minY = margin, maxY = H - margin;
+        const level = Math.round(255 * s.distractorContrast / 100);
+        const balls = [];
+        const makeBall = (isTarget) => {
+          const el = document.createElement("div");
+          const c = isTarget ? 255 : level;
+          Object.assign(el.style, {
+            position: "absolute", left: "0", top: "0", width: `${ballPx}px`, height: `${ballPx}px`,
+            borderRadius: "50%", background: `rgb(${c},${c},${c})`, willChange: "transform"
+          });
+          layer.appendChild(el);
+          const ang = Math.random() * Math.PI * 2;
+          const speedPx = (isTarget ? s.targetSpeed : s.distractorSpeed) * pxPerDeg;
+          const ball = {
+            el, isTarget, speedPx,
+            x: isTarget ? W / 2 : minX + Math.random() * (maxX - minX),
+            y: isTarget ? H / 2 : minY + Math.random() * (maxY - minY),
+            vx: Math.cos(ang) * speedPx, vy: Math.sin(ang) * speedPx,
+            nextTurn: 0
+          };
+          el.style.transform = `translate(${ball.x - ballPx / 2}px, ${ball.y - ballPx / 2}px)`;
+          return ball;
+        };
+        const target = makeBall(true);
+        balls.push(target);
+        for (let i = 0; i < s.distractorCount; i += 1) balls.push(makeBall(false));
+        // 目標畫在最上層，不被干擾球遮住
+        layer.appendChild(target.el);
+
+        let lastT = null;
+        const frame = (t) => {
+          if (ended) return;
+          if (lastT === null) lastT = t;
+          const dt = Math.min(0.05, (t - lastT) / 1000);
+          lastT = t;
+          for (const b of balls) {
+            // 干擾球：每 1.2–3 秒隨機轉向；目標：直線移動、邊界反彈 (可預測)
+            if (!b.isTarget && t >= b.nextTurn) {
+              const ang = Math.atan2(b.vy, b.vx) + (Math.random() - 0.5) * (Math.PI * 2 / 3);
+              b.vx = Math.cos(ang) * b.speedPx;
+              b.vy = Math.sin(ang) * b.speedPx;
+              b.nextTurn = t + 1200 + Math.random() * 1800;
+            }
+            b.x += b.vx * dt;
+            b.y += b.vy * dt;
+            if (b.x < minX) { b.x = minX; b.vx = Math.abs(b.vx); }
+            if (b.x > maxX) { b.x = maxX; b.vx = -Math.abs(b.vx); }
+            if (b.y < minY) { b.y = minY; b.vy = Math.abs(b.vy); }
+            if (b.y > maxY) { b.y = maxY; b.vy = -Math.abs(b.vy); }
+            b.el.style.transform = `translate(${b.x - ballPx / 2}px, ${b.y - ballPx / 2}px)`;
+          }
+          rafId = window.requestAnimationFrame(frame);
+        };
+
+        const onKey = (event) => {
+          if (event.key === "Escape") { event.preventDefault(); endTrial("escape"); }
+        };
+        window.addEventListener("keydown", onKey, true);
+        const onFullscreenChange = () => {
+          if (trial.fullscreen_entered && !fullscreenElement() && !ended) endTrial("fullscreen_exit");
+        };
+        const onVisibility = () => { if (document.visibilityState === "hidden") endTrial("visibility_hidden"); };
+        document.addEventListener("fullscreenchange", onFullscreenChange);
+        document.addEventListener("visibilitychange", onVisibility);
+
+        const endTrial = (reason) => {
+          if (ended) return;
+          ended = true;
+          const endedAt = performance.now();
+          timers.forEach((id) => window.clearTimeout(id));
+          timers.clear();
+          if (rafId !== null) window.cancelAnimationFrame(rafId);
+          window.removeEventListener("keydown", onKey, true);
+          document.removeEventListener("fullscreenchange", onFullscreenChange);
+          document.removeEventListener("visibilitychange", onVisibility);
+          if (stage.__gratingAnim) stage.__gratingAnim.cancel();
+          const actualMs = sessionStart === null ? 0 : endedAt - sessionStart;
+          exportDistractorCsv({ sessionId, settings: s, calibration, reason, actualMs, presetInfo });
+          this.jsPsych.finishTrial({
+            session_id: sessionId,
+            module: "distractor",
+            mode: "continuous",
+            settings: { ...s },
+            calibration: { ...calibration },
+            end_reason: reason,
+            completed_targets: 0,
+            actual_duration_ms: round(actualMs, 1),
+            planned_duration_ms: s.totalSec * 1000,
+            fullscreen_entered: Boolean(trial.fullscreen_entered),
+            preset: presetInfo,
+            ended_at: new Date().toISOString()
+          });
+          void exitFullscreenSafely();
+        };
+
+        // 球先靜止顯示 3 秒預備，之後開始移動與計時
+        let remain = 3;
+        const tick = () => {
+          if (ended) return;
+          hint.textContent = `${distractorResponseInstruction()}　${remain > 0 ? remain : ""}`;
+          remain -= 1;
+          if (remain >= 0) later(tick, 1000);
+        };
+        tick();
+        later(() => {
+          if (ended) return;
+          hint.textContent = "";
+          sessionStart = performance.now();
+          rafId = window.requestAnimationFrame(frame);
+          later(() => endTrial("duration_complete"), s.totalSec * 1000);
+        }, 3400);
+      }
+    }
+
+    DistractorTrackingPlugin.info = {
+      name: "distractor-tracking",
+      version: "1.0.0",
+      parameters: {
+        settings: { type: ParameterType.OBJECT },
+        calibration: { type: ParameterType.OBJECT },
+        preset_info: { type: ParameterType.OBJECT, default: null },
+        fullscreen_entered: { type: ParameterType.BOOL, default: false }
+      },
+      data: {
+        session_id: { type: ParameterType.STRING },
+        module: { type: ParameterType.STRING },
+        end_reason: { type: ParameterType.STRING },
+        actual_duration_ms: { type: ParameterType.FLOAT },
+        completed_targets: { type: ParameterType.INT }
+      }
+    };
+
+    function exportDistractorCsv({ sessionId, settings: s, calibration, reason, actualMs, presetInfo }) {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+      const params = [
+        ["測驗日期", "test_date", `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, "-", ""],
+        ["受試者代號", "subject_id", subjectId || "-", "-", ""],
+        ["測驗序號", "session_id", sessionId, "-", ""],
+        ["模組", "module_name", MODULES.distractor.name, "-", "DISTRACTOR"],
+        ["結束原因", "end_reason", reason, "-", ""],
+        ["實際時長", "actual_total_sec", round(actualMs / 1000, 2), "秒 (s)", `設定 ${s.totalSec} 秒`],
+        ["觀看距離", "viewing_distance_cm", calibration.viewingDistanceCm, "cm", ""],
+        ["球大小", "ball_deg", s.ballDeg, "°", ""],
+        ["干擾球數量", "distractor_count", s.distractorCount, "顆", `亮度 ${s.distractorContrast}%`],
+        ["速度", "speed_dps", `目標 ${s.targetSpeed} / 干擾 ${s.distractorSpeed}`, "°/s", ""],
+        ["背景", "background", { plain: "純黑", grating: "移動條紋", busy: "雜亂" }[s.background], "-", ""]
+      ];
+      if (presetInfo) params.push(["訓練處方", "preset", `區塊 ${presetInfo.block}/${presetInfo.blockCount}，回合 ${presetInfo.round}/${presetInfo.rounds}`, "-", EYE_CONDITIONS[presetInfo.eye] || presetInfo.eye]);
+      const paramCsv = [["參數項目", "參數代碼", "設定數值", "單位", "詳細說明"].join(","), ...params.map((r) => r.map(csvEscape).join(","))].join("\r\n");
+      triggerFileDownload(`${stamp}-DISTRACTOR-測驗參數.csv`, paramCsv);
+    }
+
+    // ════════════════════════════════════════════════════
+    // ██  反應跳視 (Reaction Jumps)
+    //     概念參考 FoveaFlow Reaction Jumps (MIT)；此為本程式自行實作，並加上可量化的辨識作業。
+    //     單一目標球靜止後「瞬間跳」到新位置；頭保持不動，眼睛快速找到新位置並看清球內的刺激
+    //     (數字 0–9 或箭頭)。預設為 Go / No-go：只有指定目標出現時按滑鼠左鍵。
+    //     亦可改為方向鍵作答 (僅箭頭)。以正確率與反應時間評分，不使用眼動儀。
+    // ════════════════════════════════════════════════════
+    const REACTION_ARROWS = { up: "↑", down: "↓", left: "←", right: "→" };
+    const REACTION_ROT = { up: 0, right: 90, down: 180, left: 270 };
+    const REACTION_KEYS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
+
+    // 分級建議 (治療師參考，非診斷)
+    function reactionGrade(summary, s) {
+      if (!summary || !summary.trials) return { key: "none", label: "資料不足", text: "有效跳視數不足，無法分級。" };
+      const acc = summary.accuracy_pct;
+      const med = summary.median_rt_ms;
+      const click = s.responseMode !== "key";
+      const hitRate = click ? summary.hit_rate_pct : summary.accuracy_pct;
+      const fa = click ? summary.false_alarm_pct : 0;
+      const missPct = summary.trials ? summary.misses / summary.trials * 100 : 0;
+      if (acc < 70 || (hitRate != null && hitRate < 70) || (!click && missPct >= 30)) {
+        return { key: "regress", label: "降階", text: "正確率或命中率 < 70%：放慢間隔、放大球，或縮小跳視距離後再試。" };
+      }
+      if (acc >= 90 && (hitRate == null || hitRate >= 90) && fa <= 10 && med != null && med <= s.intervalMs * 0.6) {
+        return { key: "advance", label: "可進階", text: "正確率與命中率 ≥ 90%、誤按 ≤ 10%、中位反應 ≤ 間隔 60%：連續 2–3 次達標後，一次只改一個條件 (間隔縮短 200–300 ms 或球縮小)。" };
+      }
+      return { key: "hold", label: "維持", text: "維持目前條件，連續 2–3 次達「可進階」標準再進階。" };
+    }
+
+    function reactionFormFields(s) {
+      const sectionTitle = (text) => `<h3 class="span-all" style="grid-column:1/-1; margin:14px 0 0; font-size:16px">${text}</h3>`;
+      const digitOptions = [["random", "每輪隨機"], ...Array.from({ length: 10 }, (_, i) => [String(i), String(i)])];
+      return `
+        ${numberField({ id: "total-sec", name: "totalSec", label: "訓練總時長 (Total duration)", value: s.totalSec, unit: "sec", hint: "建議每回 30–60 秒，症狀上升即停止" })}
+        ${sectionTitle("刺激與作答")}
+        ${optionButtons("stimulus", "球內刺激", [["number", "數字 0–9", "每次跳視隨機數字"], ["arrow", "箭頭", "↑ ↓ ← →"]], s.stimulus === "arrow" ? "arrow" : "number", 2)}
+        ${optionButtons("responseMode", "作答方式", [["click", "滑鼠左鍵 (Go / No-go)", "只有目標出現時按"], ["key", "方向鍵 (僅箭頭)", "四選一"]], s.responseMode === "key" ? "key" : "click", 2)}
+        ${optionButtons("targetDigit", "目標數字 (數字刺激、左鍵作答)", digitOptions, String(s.targetDigit), 6)}
+        ${optionButtons("targetArrow", "目標箭頭 (箭頭刺激、左鍵作答)", [["up", "↑ 上"], ["down", "↓ 下"], ["left", "← 左"], ["right", "→ 右"]], s.targetArrow, 4)}
+        ${numberField({ id: "target-pct", name: "targetPct", label: "目標出現比例", value: s.targetPct, unit: "%", hint: "其餘為非目標 (10–90%)" })}
+        ${sectionTitle("目標")}
+        ${numberField({ id: "ball-deg", name: "ballDeg", label: "球大小 (Ball size)", value: s.ballDeg, unit: "°", hint: "越小越難；入門 2–3°，進階 ≤ 1°" })}
+        ${numberField({ id: "arrow-ratio", name: "arrowPct", label: "球內數字/箭頭比例", value: s.arrowPct, unit: "%", hint: "佔球直徑比例 (30–90%)；越小越難" })}
+        ${sectionTitle("跳視")}
+        ${numberField({ id: "interval-ms", name: "intervalMs", label: "跳視間隔 (Pace)", value: s.intervalMs, unit: "ms", hint: "每次跳視之間的時間，也是回應時限；入門 2000，進階 800–1000" })}
+        ${numberField({ id: "jitter-pct", name: "jitterPct", label: "間隔隨機變動", value: s.jitterPct, unit: "%", hint: "0–50%；避免預測節奏" })}
+        ${numberField({ id: "min-jump", name: "minJumpDeg", label: "最小跳視距離", value: s.minJumpDeg, unit: "°", hint: "相鄰兩次位置至少相隔此角度" })}
+        ${numberField({ id: "max-range", name: "rangeDeg", label: "活動範圍 (半徑)", value: s.rangeDeg, unit: "°", hint: "以螢幕中央為中心，並受螢幕大小限制" })}
+        ${sectionTitle("背景")}
+        ${optionButtons("background", "背景干擾", [
+          ["plain", "純黑", "入門"],
+          ["grating", "移動條紋", "動態條紋"],
+          ["busy", "雜亂背景", "靜態灰階圖形"]
+        ], s.background === "grating" || s.background === "busy" ? s.background : "plain", 3)}
+        <div class="field-grid span-all" id="grating-fields" style="grid-column:1/-1; ${s.background === "grating" ? "" : "display:none"}">
+          ${numberField({ id: "grating-speed", name: "gratingSpeed", label: "條紋速度", value: s.gratingSpeed, unit: "°/s", hint: "移動速度" })}
+          ${numberField({ id: "grating-bar", name: "gratingBarDeg", label: "條紋寬度", value: s.gratingBarDeg, unit: "°", hint: "單一條紋寬度" })}
+          ${optionButtons("gratingContrast", "條紋對比", [["low", "低"], ["medium", "中"], ["high", "高"]], s.gratingContrast, 3)}
+          ${optionButtons("gratingDir", "移動方向", [["horizontal", "水平移動"], ["vertical", "垂直移動"]], s.gratingDir, 2)}
+        </div>`;
+    }
+
+    function readReactionSettings(form) {
+      const result = readPositiveNumbers(form, ["totalSec", "ballDeg", "arrowPct", "targetPct", "intervalMs", "minJumpDeg", "rangeDeg", "gratingSpeed", "gratingBarDeg"]);
+      const value = (name) => form.elements.namedItem(name)?.value;
+      const jitter = Number(value("jitterPct"));
+      const digit = String(value("targetDigit"));
+      const stimulus = value("stimulus") === "arrow" ? "arrow" : "number";
+      let responseMode = value("responseMode") === "key" ? "key" : "click";
+      if (stimulus === "number") responseMode = "click"; // 方向鍵僅適用於箭頭
+      Object.assign(result.values, {
+        jitterPct: Number.isFinite(jitter) ? jitter : NaN,
+        stimulus,
+        responseMode,
+        targetDigit: digit === "random" || /^[0-9]$/.test(digit) ? digit : "random",
+        targetArrow: REACTION_ARROWS[value("targetArrow")] ? value("targetArrow") : "right",
+        background: ["plain", "grating", "busy"].includes(value("background")) ? value("background") : "plain",
+        gratingContrast: ["low", "medium", "high"].includes(value("gratingContrast")) ? value("gratingContrast") : "low",
+        gratingDir: value("gratingDir") === "vertical" ? "vertical" : "horizontal"
+      });
+      const v = result.values;
+      if (!(v.jitterPct >= 0 && v.jitterPct <= 50)) result.errors.push("間隔隨機變動 (0–50%)");
+      if (v.arrowPct && (v.arrowPct < 30 || v.arrowPct > 90)) result.errors.push("數字/箭頭比例 (30–90%)");
+      if (v.targetPct && (v.targetPct < 10 || v.targetPct > 90)) result.errors.push("目標比例 (10–90%)");
+      if (v.intervalMs && (v.intervalMs < 400 || v.intervalMs > 5000)) result.errors.push("跳視間隔 (400–5000 ms)");
+      if (v.minJumpDeg && v.rangeDeg && v.minJumpDeg >= v.rangeDeg * 1.5) result.errors.push("最小跳視距離 (需小於活動範圍)");
+      return result;
+    }
+
+    function reactionPreviewText(v) {
+      const hz = v.intervalMs ? 1000 / v.intervalMs : 0;
+      const task = v.responseMode === "key"
+        ? "依球內箭頭按方向鍵"
+        : v.stimulus === "number"
+          ? `只有出現數字「${v.targetDigit === "random" ? "每輪隨機指定" : v.targetDigit}」時按滑鼠左鍵`
+          : `只有出現「${REACTION_ARROWS[v.targetArrow]}」時按滑鼠左鍵`;
+      return `每 ${v.intervalMs} ms 跳一次 (約 ${formatNumber(hz, 1)} 次/秒)；球 ${v.ballDeg}°，${v.stimulus === "number" ? "數字" : "箭頭"} ${formatNumber(v.ballDeg * v.arrowPct / 100, 2)}°，跳視距離 ≥ ${v.minJumpDeg}°；${task}。` +
+        "分級建議：入門 球 3° / 2000 ms → 2° / 1500 ms → 1.5° / 1200 ms → 1° / 1000 ms → 1° / 800 ms 加背景；一次只改一個條件，頭保持不動。";
+    }
+
+    function reactionResponseInstruction(s, targetDigit) {
+      if (s && s.responseMode === "key") {
+        return "頭保持不動。球跳到新位置後，眼睛盡快找到它，看清球內的小箭頭，按對應的方向鍵 (↑ ↓ ← →)。不舒服時按 ESC 停止。";
+      }
+      const goal = s && s.stimulus === "arrow"
+        ? `「${REACTION_ARROWS[s.targetArrow] || "→"}」`
+        : `數字「${targetDigit != null ? targetDigit : (s && s.targetDigit !== "random" ? s.targetDigit : "?")}」`;
+      return `頭保持不動。球跳到新位置後，眼睛盡快找到它；只有看到${goal}時按滑鼠左鍵，其他不要按。不舒服時按 ESC 停止。`;
+    }
+
+    class ReactionJumpsPlugin {
+      constructor(jsPsych) { this.jsPsych = jsPsych; }
+
+      trial(displayElement, trial) {
+        const s = trial.settings;
+        const calibration = trial.calibration;
+        const presetInfo = trial.preset_info || null;
+        const screenPixels = currentScreenPixels();
+        const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        const isNumber = s.stimulus !== "arrow";
+        const keyMode = !isNumber && s.responseMode === "key";
+        // 目標數字：指定或每輪隨機 (0–9)
+        const targetDigit = isNumber
+          ? (s.targetDigit === "random" || s.targetDigit === undefined ? Math.floor(Math.random() * 10) : Number(s.targetDigit))
+          : null;
+        let ended = false;
+        let sessionStart = null;
+        const timers = new Set();
+        const later = (fn, ms) => { const id = window.setTimeout(() => { timers.delete(id); fn(); }, Math.max(0, ms)); timers.add(id); return id; };
+
+        displayElement.innerHTML = `
+          <section id="training-stage" class="training-stage" style="cursor:none; user-select:none" role="application" aria-label="Reaction jumps in progress">
+            <div id="rj-ball" style="position:absolute; border-radius:50%; background:#fff; transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; color:#000; font-weight:800; font-family:system-ui,sans-serif; line-height:1;"></div>
+            <div id="rj-hint" style="position:absolute; left:0; right:0; bottom:4vh; text-align:center; color:#888; font-size:clamp(14px,1.6vw,20px); pointer-events:none;"></div>
+            <span class="sr-only">Training has started. Press Escape to stop.</span>
+          </section>`;
+        const stage = displayElement.querySelector("#training-stage");
+        const ball = displayElement.querySelector("#rj-ball");
+        const hint = displayElement.querySelector("#rj-hint");
+        const instruction = reactionResponseInstruction(s, targetDigit);
+        hint.textContent = instruction;
+
+        const W = stage.getBoundingClientRect().width || window.innerWidth;
+        const H = stage.getBoundingClientRect().height || window.innerHeight;
+        const pxPerDeg = degToPx(1, "x", calibration, screenPixels);
+        applyDualBackground(stage, s, pxPerDeg, Math.round(W), Math.round(H));
+
+        const ballPx = Math.max(10, s.ballDeg * pxPerDeg);
+        const glyphPx = Math.max(6, ballPx * s.arrowPct / 100);
+        const margin = ballPx / 2 + 6;
+        const cx = W / 2, cy = H / 2;
+        const rangePx = s.rangeDeg * pxPerDeg;
+        const minX = Math.max(margin, cx - rangePx), maxX = Math.min(W - margin, cx + rangePx);
+        const minY = Math.max(margin, cy - rangePx), maxY = Math.min(H - margin, cy + rangePx);
+        const minJumpPx = s.minJumpDeg * pxPerDeg;
+        Object.assign(ball.style, { width: `${ballPx}px`, height: `${ballPx}px`, fontSize: `${glyphPx}px` });
+        if (!isNumber) {
+          ball.innerHTML = `<svg viewBox="0 0 100 100" width="${glyphPx}" height="${glyphPx}" style="display:block"><path d="M50 6 L90 52 H64 V94 H36 V52 H10 Z" fill="#000"/></svg>`;
+        } else {
+          ball.textContent = "•";
+        }
+        const arrowSvg = ball.querySelector("svg");
+
+        const events = [];
+        let current = null;
+        let pos = { x: cx, y: cy };
+        let lastStim = null;
+        const dirs = Object.keys(REACTION_ARROWS);
+        const place = (x, y) => { ball.style.left = `${x}px`; ball.style.top = `${y}px`; };
+        place(cx, cy);
+
+        // 每次跳視隨機決定是否為目標；非目標在 0–9 (或其他箭頭) 中隨機，且不與前一次相同
+        const drawStimulus = () => {
+          if (keyMode) {
+            let d;
+            do { d = dirs[Math.floor(Math.random() * dirs.length)]; } while (d === lastStim && dirs.length > 1 && Math.random() < 0.7);
+            return { value: d, isTarget: null };
+          }
+          const isTarget = Math.random() * 100 < s.targetPct;
+          if (isNumber) {
+            let d;
+            if (isTarget) d = targetDigit;
+            else do { d = Math.floor(Math.random() * 10); } while (d === targetDigit || d === lastStim);
+            return { value: d, isTarget };
+          }
+          const others = dirs.filter((x) => x !== s.targetArrow);
+          return { value: isTarget ? s.targetArrow : others[Math.floor(Math.random() * others.length)], isTarget };
+        };
+
+        const nextJump = () => {
+          if (ended) return;
+          if (current && current.outcome === null) current.outcome = current.isTarget === false ? "correct_rejection" : "miss";
+          let nx = pos.x, ny = pos.y, tries = 0;
+          do {
+            nx = minX + Math.random() * (maxX - minX);
+            ny = minY + Math.random() * (maxY - minY);
+            tries += 1;
+          } while (Math.hypot(nx - pos.x, ny - pos.y) < minJumpPx && tries < 60);
+          const distDeg = Math.hypot(nx - pos.x, ny - pos.y) / pxPerDeg;
+          pos = { x: nx, y: ny };
+          const stim = drawStimulus();
+          lastStim = stim.value;
+          if (isNumber) ball.textContent = String(stim.value);
+          else arrowSvg.style.transform = `rotate(${REACTION_ROT[stim.value]}deg)`;
+          place(nx, ny);
+          current = {
+            n: events.length + 1,
+            stimulus: stim.value,
+            isTarget: stim.isTarget,
+            jump_deg: round(distDeg, 1),
+            x_deg: round((nx - cx) / pxPerDeg, 1),
+            y_deg: round((cy - ny) / pxPerDeg, 1),
+            onset_ms: round(performance.now() - sessionStart, 1),
+            outcome: null,
+            response: null,
+            rt_ms: null
+          };
+          events.push(current);
+          const jitter = (Math.random() * 2 - 1) * s.jitterPct / 100;
+          later(nextJump, s.intervalMs * (1 + jitter));
+        };
+
+        const respond = (answer) => {
+          if (ended || sessionStart === null || !current || current.outcome !== null) return;
+          const t = performance.now() - sessionStart;
+          current.rt_ms = round(t - current.onset_ms, 1);
+          if (keyMode) {
+            current.response = answer;
+            current.outcome = answer === current.stimulus ? "correct" : "wrong";
+          } else {
+            current.response = "click";
+            current.outcome = current.isTarget ? "hit" : "false_alarm";
+          }
+        };
+
+        const onKey = (event) => {
+          if (event.key === "Escape") { event.preventDefault(); endTrial("escape"); return; }
+          if (event.repeat || !keyMode) return;
+          const dir = REACTION_KEYS[event.key];
+          if (dir) { event.preventDefault(); respond(dir); }
+        };
+        const onPointer = (event) => {
+          if (keyMode || event.button !== 0) return;
+          event.preventDefault();
+          respond("click");
+        };
+        window.addEventListener("keydown", onKey, true);
+        window.addEventListener("pointerdown", onPointer, true);
+        const onFullscreenChange = () => {
+          if (trial.fullscreen_entered && !fullscreenElement() && !ended) endTrial("fullscreen_exit");
+        };
+        const onVisibility = () => { if (document.visibilityState === "hidden") endTrial("visibility_hidden"); };
+        document.addEventListener("fullscreenchange", onFullscreenChange);
+        document.addEventListener("visibilitychange", onVisibility);
+
+        const summarize = () => {
+          const done = events.filter((e) => e.outcome);
+          const median = (list) => { const a = [...list].sort((x, y) => x - y); return a.length ? a[Math.floor(a.length / 2)] : null; };
+          const mean = (list) => (list.length ? round(list.reduce((x, y) => x + y, 0) / list.length, 0) : null);
+          const base = { trials: done.length };
+          if (keyMode) {
+            const correct = done.filter((e) => e.outcome === "correct");
+            const rts = correct.map((e) => e.rt_ms);
+            const split = median(correct.map((e) => e.jump_deg));
+            const avg = (l) => mean(l.map((e) => e.rt_ms));
+            return {
+              ...base,
+              correct: correct.length,
+              wrong: done.filter((e) => e.outcome === "wrong").length,
+              misses: done.filter((e) => e.outcome === "miss").length,
+              accuracy_pct: done.length ? round(correct.length / done.length * 100, 1) : null,
+              mean_rt_ms: mean(rts), median_rt_ms: median(rts),
+              near_jump_rt_ms: split === null ? null : avg(correct.filter((e) => e.jump_deg <= split)),
+              far_jump_rt_ms: split === null ? null : avg(correct.filter((e) => e.jump_deg > split)),
+              jump_split_deg: split
+            };
+          }
+          const targets = done.filter((e) => e.isTarget);
+          const nontargets = done.filter((e) => !e.isTarget);
+          const hits = targets.filter((e) => e.outcome === "hit");
+          const fas = nontargets.filter((e) => e.outcome === "false_alarm");
+          const rts = hits.map((e) => e.rt_ms);
+          const split = median(hits.map((e) => e.jump_deg));
+          const avg = (l) => mean(l.map((e) => e.rt_ms));
+          const correctN = hits.length + (nontargets.length - fas.length);
+          return {
+            ...base,
+            targets: targets.length,
+            hits: hits.length,
+            misses: targets.length - hits.length,
+            nontargets: nontargets.length,
+            false_alarms: fas.length,
+            correct: correctN,
+            wrong: fas.length,
+            accuracy_pct: done.length ? round(correctN / done.length * 100, 1) : null,
+            hit_rate_pct: targets.length ? round(hits.length / targets.length * 100, 1) : null,
+            false_alarm_pct: nontargets.length ? round(fas.length / nontargets.length * 100, 1) : null,
+            mean_rt_ms: mean(rts), median_rt_ms: median(rts),
+            near_jump_rt_ms: split === null ? null : avg(hits.filter((e) => e.jump_deg <= split)),
+            far_jump_rt_ms: split === null ? null : avg(hits.filter((e) => e.jump_deg > split)),
+            jump_split_deg: split
+          };
+        };
+
+        const endTrial = (reason) => {
+          if (ended) return;
+          ended = true;
+          const endedAt = performance.now();
+          timers.forEach((id) => window.clearTimeout(id));
+          timers.clear();
+          // 最後一次跳視：已過 80% 間隔才計入結果，否則捨棄
+          if (current && current.outcome === null && sessionStart !== null) {
+            const elapsed = (endedAt - sessionStart) - current.onset_ms;
+            if (elapsed >= s.intervalMs * 0.8) current.outcome = current.isTarget === false ? "correct_rejection" : "miss";
+            else events.pop();
+          }
+          window.removeEventListener("keydown", onKey, true);
+          window.removeEventListener("pointerdown", onPointer, true);
+          document.removeEventListener("fullscreenchange", onFullscreenChange);
+          document.removeEventListener("visibilitychange", onVisibility);
+          if (stage.__gratingAnim) stage.__gratingAnim.cancel();
+          const summary = summarize();
+          const grade = reactionGrade(summary, s);
+          summary.grade = grade.key;
+          const actualMs = sessionStart === null ? 0 : endedAt - sessionStart;
+          exportReactionCsvs({ sessionId, settings: s, calibration, summary, grade, events, reason, actualMs, presetInfo, targetDigit, keyMode, isNumber });
+          this.jsPsych.finishTrial({
+            session_id: sessionId,
+            module: "reaction",
+            mode: "continuous",
+            settings: { ...s },
+            calibration: { ...calibration },
+            end_reason: reason,
+            completed_targets: summary.correct,
+            actual_duration_ms: round(actualMs, 1),
+            planned_duration_ms: s.totalSec * 1000,
+            fullscreen_entered: Boolean(trial.fullscreen_entered),
+            reaction: { summary, grade, events, target_digit: targetDigit },
+            preset: presetInfo,
+            ended_at: new Date().toISOString()
+          });
+          void exitFullscreenSafely();
+        };
+
+        // 3 秒預備 (球在中央)，之後才開始跳視與計時
+        let remain = 3;
+        const tick = () => {
+          if (ended) return;
+          hint.textContent = `${instruction}　${remain > 0 ? remain : ""}`;
+          remain -= 1;
+          if (remain >= 0) later(tick, 1000);
+        };
+        tick();
+        later(() => {
+          if (ended) return;
+          hint.textContent = "";
+          sessionStart = performance.now();
+          later(() => endTrial("duration_complete"), s.totalSec * 1000);
+          nextJump();
+        }, 3400);
+      }
+    }
+
+    ReactionJumpsPlugin.info = {
+      name: "reaction-jumps",
+      version: "2.0.0",
+      parameters: {
+        settings: { type: ParameterType.OBJECT },
+        calibration: { type: ParameterType.OBJECT },
+        preset_info: { type: ParameterType.OBJECT, default: null },
+        fullscreen_entered: { type: ParameterType.BOOL, default: false }
+      },
+      data: {
+        session_id: { type: ParameterType.STRING },
+        module: { type: ParameterType.STRING },
+        end_reason: { type: ParameterType.STRING },
+        actual_duration_ms: { type: ParameterType.FLOAT },
+        completed_targets: { type: ParameterType.INT }
+      }
+    };
+
+    function exportReactionCsvs({ sessionId, settings: s, calibration, summary, grade, events, reason, actualMs, presetInfo, targetDigit, keyMode, isNumber }) {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+      const outcomeLabels = { hit: "命中", miss: "遺漏", false_alarm: "誤按", correct_rejection: "正確忽略", correct: "正確", wrong: "答錯" };
+      const show = (v) => (isNumber ? String(v) : REACTION_ARROWS[v] || "");
+      const eventCsv = [
+        ["序號", "刺激", "是否目標", "回答", "跳視距離 (°)", "水平位置 (°)", "垂直位置 (°)", "出現時間 (s)", "結果", "反應時間 (ms)"].map(csvEscape).join(","),
+        ...events.map((e) => [e.n, show(e.stimulus), e.isTarget === null ? "" : (e.isTarget ? "是" : "否"),
+          e.response ? (keyMode ? REACTION_ARROWS[e.response] : "左鍵") : "", e.jump_deg, e.x_deg, e.y_deg,
+          round(e.onset_ms / 1000, 2), outcomeLabels[e.outcome] || e.outcome, e.rt_ms ?? ""].map(csvEscape).join(","))
+      ].join("\r\n");
+      const params = [
+        ["測驗日期", "test_date", `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, "-", ""],
+        ["受試者代號", "subject_id", subjectId || "-", "-", ""],
+        ["測驗序號", "session_id", sessionId, "-", ""],
+        ["模組", "module_name", MODULES.reaction.name, "-", "REACTION"],
+        ["結束原因", "end_reason", reason, "-", ""],
+        ["實際時長", "actual_total_sec", round(actualMs / 1000, 2), "秒 (s)", `設定 ${s.totalSec} 秒`],
+        ["觀看距離", "viewing_distance_cm", calibration.viewingDistanceCm, "cm", ""],
+        ["刺激/作答", "stimulus_response", `${isNumber ? "數字 0–9" : "箭頭"} / ${keyMode ? "方向鍵" : "滑鼠左鍵 Go/No-go"}`, "-",
+          keyMode ? "" : (isNumber ? `目標數字 ${targetDigit}` : `目標箭頭 ${REACTION_ARROWS[s.targetArrow]}`) + `，目標比例 ${s.targetPct}%`],
+        ["球大小/刺激", "ball", `${s.ballDeg}° / ${s.arrowPct}%`, "-", ""],
+        ["跳視間隔", "interval_ms", s.intervalMs, "ms", `隨機變動 ${s.jitterPct}%`],
+        ["跳視距離/範圍", "jump_range", `≥ ${s.minJumpDeg}° / 半徑 ${s.rangeDeg}°`, "-", ""],
+        ["背景", "background", { plain: "純黑", grating: "移動條紋", busy: "雜亂" }[s.background], "-", ""],
+        ["有效跳視數", "trials", summary.trials, "次", keyMode
+          ? `正確 ${summary.correct}、答錯 ${summary.wrong}、遺漏 ${summary.misses}`
+          : `目標 ${summary.targets}（命中 ${summary.hits}、遺漏 ${summary.misses}）、非目標 ${summary.nontargets}（誤按 ${summary.false_alarms}）`],
+        ["正確率", "accuracy_pct", summary.accuracy_pct ?? "-", "%", keyMode ? "" : `命中率 ${summary.hit_rate_pct ?? "-"}%，誤按率 ${summary.false_alarm_pct ?? "-"}%`],
+        ["中位反應時間", "median_rt_ms", summary.median_rt_ms ?? "-", "ms", `平均 ${summary.mean_rt_ms ?? "-"}`],
+        ["近/遠跳視反應", "near_far_rt_ms", `${summary.near_jump_rt_ms ?? "-"} / ${summary.far_jump_rt_ms ?? "-"}`, "ms", summary.jump_split_deg === null ? "" : `以 ${summary.jump_split_deg}° 分界`],
+        ["分級建議", "grade", grade.label, "-", grade.text]
+      ];
+      if (presetInfo) params.push(["訓練處方", "preset", `區塊 ${presetInfo.block}/${presetInfo.blockCount}，回合 ${presetInfo.round}/${presetInfo.rounds}`, "-", EYE_CONDITIONS[presetInfo.eye] || presetInfo.eye]);
+      const paramCsv = [["參數項目", "參數代碼", "設定數值", "單位", "詳細說明"].join(","), ...params.map((r) => r.map(csvEscape).join(","))].join("\r\n");
+      triggerFileDownload(`${stamp}-REACTION-事件.csv`, eventCsv);
+      setTimeout(() => triggerFileDownload(`${stamp}-REACTION-測驗參數.csv`, paramCsv), 200);
+    }
+
+    const reactionTrainingTrial = {
+      type: ReactionJumpsPlugin,
+      settings: () => AppState.pending.settings,
+      calibration: () => AppState.pending.calibration,
+      preset_info: () => AppState.pending.presetInfo,
+      fullscreen_entered: () => AppState.pending.fullscreenEntered,
+      on_finish(data) {
+        AppState.lastSession = { ...data };
+        AppState.pending = null;
+        afterTrainingRound(data);
+      }
+    };
+    const distractorTrainingTrial = {
+      type: DistractorTrackingPlugin,
+      settings: () => AppState.pending.settings,
+      calibration: () => AppState.pending.calibration,
       preset_info: () => AppState.pending.presetInfo,
       fullscreen_entered: () => AppState.pending.fullscreenEntered,
       on_finish(data) {
@@ -96029,6 +96772,14 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         {
           timeline: [dualTrainingTrial],
           conditional_function: () => Boolean(AppState.pending && AppState.pending.module === "dual")
+        },
+        {
+          timeline: [reactionTrainingTrial],
+          conditional_function: () => Boolean(AppState.pending && AppState.pending.module === "reaction")
+        },
+        {
+          timeline: [distractorTrainingTrial],
+          conditional_function: () => Boolean(AppState.pending && AppState.pending.module === "distractor")
         },
         {
           timeline: [gazeTrainingTrial],
