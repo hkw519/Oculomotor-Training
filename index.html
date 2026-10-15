@@ -90502,6 +90502,16 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       rightMonitor: { enabled: true, widthCm: 48.5, heightCm: 27.5, gapCm: 2, vertOffsetCm: 0 }
     };
 
+    // 個案檢視：網址加上 ?client=1（或 #client）即直接進入個案模式，只顯示「開始今日訓練」。
+    // 此模式不需密碼、不寫入瀏覽器的鎖定狀態；治療師用不帶參數的網址開啟即可調整設定。
+    const CLIENT_VIEW = (() => {
+      try {
+        return new URLSearchParams(window.location.search).get("client") === "1" || window.location.hash === "#client";
+      } catch (error) {
+        return false;
+      }
+    })();
+
     function readProfile() {
       const profile = JSON.parse(JSON.stringify(DEFAULT_PROFILE));
       try {
@@ -90517,12 +90527,24 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
           if (HOME_EDITION) profile.rightMonitor.enabled = false;
         }
       } catch (error) { /* 使用預設值 */ }
+      if (CLIENT_VIEW) {
+        profile.lock = { locked: true, code: "" };
+        profile.rightMonitor.enabled = false;
+      }
       return profile;
     }
 
     function saveProfile() {
       try {
-        window.localStorage.setItem(PROFILE_KEY, JSON.stringify(AppState.profile));
+        const toSave = JSON.parse(JSON.stringify(AppState.profile));
+        if (CLIENT_VIEW) {
+          // 個案檢視不改變瀏覽器中儲存的鎖定與第二螢幕設定
+          let stored = null;
+          try { stored = JSON.parse(window.localStorage.getItem(PROFILE_KEY) || "null"); } catch (error) { stored = null; }
+          toSave.lock = (stored && stored.lock) || { locked: false, code: "" };
+          toSave.rightMonitor = (stored && stored.rightMonitor) || DEFAULT_PROFILE.rightMonitor;
+        }
+        window.localStorage.setItem(PROFILE_KEY, JSON.stringify(toSave));
         return true;
       } catch (error) {
         return false;
@@ -92441,7 +92463,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       const presetText = blocks.length
         ? blocks.map((b, i) => `${i + 1}. ${(MODULES[b.module] || { code: b.module }).code} ×${b.rounds}${b.eye !== "both" ? `（${EYE_CONDITIONS[b.eye] || b.eye}）` : ""}`).join("　")
         : "尚未設定";
-      const therapistButtons = locked ? `
+      const therapistButtons = locked && CLIENT_VIEW ? "" : locked ? `
           <button class="secondary-button" type="button" data-open-unlock>治療師解鎖</button>` : `
           <button class="secondary-button" type="button" data-open-zone>單一視覺區設定</button>
           <button class="secondary-button" type="button" data-open-preset>訓練處方</button>
