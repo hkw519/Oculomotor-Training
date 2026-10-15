@@ -90377,8 +90377,8 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         description: "Keep the central target stable while moving your head to the beat, and press Space when the designated arrow appears."
       }
     };
-    // 僅開放 VOR 與 Gaze Stability Training
-    const ENABLED_MODULES = ["vor", "gaze"];
+    // 僅開放 Gaze Stability Training (VOR 中央目標模組已隱藏)
+    const ENABLED_MODULES = ["gaze"];
     const isNoTrackModule = (k) => k === "dual" || k === "gaze";
 
     const ALL_DIRECTIONS = [
