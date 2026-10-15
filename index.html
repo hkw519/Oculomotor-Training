@@ -93235,8 +93235,8 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
                 }
                 AppState.preset.active = false;
                 AppState.pending = buildPending(moduleKey, result.values, fullscreenEntered);
-                // 本次開啟頁面後第一次訓練前，先做訓練前症狀檢核
-                AppState.symptom.needPre = AppState.profile.symptoms.enabled && !AppState.symptom.baselineDone;
+                // 單一模組訓練不做症狀檢核；症狀檢核只在「今日訓練處方」執行時出現
+                AppState.symptom.needPre = false;
                 this.jsPsych.finishTrial({
                   action: "module_selected",
                   selected_module: moduleKey,
@@ -94851,8 +94851,9 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       const symptomsOn = AppState.profile.symptoms.enabled;
       const preset = AppState.preset;
       if (!preset.active) {
+        // 單一模組訓練：不做症狀檢核 (僅今日訓練處方會檢核)
         sym.postContext = { module: data.module, presetCompleted: false };
-        sym.needPost = symptomsOn;
+        sym.needPost = false;
         return;
       }
       const block = preset.blocks[preset.blockIdx];
