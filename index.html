@@ -94743,62 +94743,59 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
     // 任務之間的個案指引：每個模組「怎麼做 / 按什麼 / 小提醒」，顯示在每回合開始前的畫面
     const MODULE_GUIDE_ZH = {
       pursuit: {
-        title: "平順追視：眼睛跟著白色球",
+        title: "眼睛跟著白球",
         steps: [
-          "坐正，坐在治療師指定的距離，頭保持不動。",
-          "只用眼睛跟著白色球慢慢移動，不要用跳的，也不要轉頭。",
-          "球偶爾會短暫變紅：看到時按一下空白鍵。",
-          "球可能走到畫面邊緣或繞圈，眼睛跟著走就好。"
+          "頭不動，只用眼睛跟著白球。",
+          "慢慢看，不要用跳的。",
+          "球變紅時，按空白鍵。"
         ],
-        tip: "眼睛乾澀時可以自然眨眼，不需要硬撐。"
+        tip: "累了就眨眼。"
       },
       gaze: {
-        title: "凝視穩定：頭動、眼睛不動",
+        title: "頭動，眼睛不動",
         steps: [
-          "眼睛一直盯住畫面中央的小點。",
+          "眼睛看中央小點。",
           "{head}",
-          "每聽到一聲「滴」，頭就換到另一側；動作要輕鬆、幅度適中，不要太快。",
-          "中央出現箭頭時：只有看到上方說明所指定的箭頭才按空白鍵，其他方向不要按。"
+          "看到指定箭頭，按空白鍵；其他箭頭不要按。"
         ],
-        tip: "感覺畫面模糊、頭暈或噁心時，請放慢，不舒服就按 ESC 停下來。"
+        tip: "頭暈就放慢，或按 ESC 停止。"
       },
       reaction: {
-        title: "反應跳視：找到跳走的球",
+        title: "球跳了，找到它",
         steps: [
-          "頭保持不動，眼睛先看著球。",
-          "球會突然跳到新位置：盡快用眼睛找到它，看清球裡面的數字。",
-          "只有看到「倒數時顯示的指定數字」才按一下滑鼠左鍵，其他數字不要按。",
-          "不需要追著球猜下一個位置，找到就好。"
+          "頭不動，眼睛找到跳走的球。",
+          "看到指定數字，按滑鼠左鍵。",
+          "其他數字不要按。"
         ],
-        tip: "每回合開始前的 3 秒倒數會顯示今天的指定數字，請先記住。"
+        tip: "指定數字會在倒數時出現，先記住。"
       },
       distractor: {
-        title: "干擾追視：只追最亮的球",
+        title: "只追最亮的球",
         steps: [
-          "頭保持不動。",
-          "畫面有一顆最亮的白球和幾顆較暗的球。",
-          "眼睛只跟著最亮的球，不要被較暗的球帶走。"
+          "頭不動。",
+          "眼睛只跟最亮的白球。",
+          "不要被暗的球帶走。"
         ],
-        tip: "被帶走時，回到最亮的球即可，不用緊張。"
+        tip: "被帶走就回來，不用緊張。"
       },
       vor: {
-        title: "頭眼協調：看中央數字",
-        steps: ["眼睛一直盯著中央的數字。", "頭依治療師指示慢慢轉動，並唸出看到的數字。"],
-        tip: "動作放慢，不舒服就停下來。"
+        title: "看中央數字",
+        steps: ["眼睛看中央數字。", "頭照治療師說的慢慢轉，並唸出數字。"],
+        tip: "放慢，不舒服就停。"
       },
       saccade: {
-        title: "跳視：眼睛快速跳到新目標",
-        steps: ["頭保持不動。", "目標出現在新位置時，眼睛快速跳過去，看清楚再等下一個。"],
-        tip: "只動眼睛，不要轉頭。"
+        title: "眼睛快速跳到目標",
+        steps: ["頭不動。", "目標出現，眼睛馬上跳過去。"],
+        tip: "只動眼睛，不轉頭。"
       },
       fixation: {
-        title: "邊緣注視：移到邊緣後盯住",
-        steps: ["頭保持不動。", "眼睛跟著目標移到畫面邊緣，目標停住後盯住它。", "若看到兩個或盯不住，按空白鍵（或滑鼠）重新開始。"],
-        tip: "盯不住時按鍵重來即可，不要硬撐。"
+        title: "移到邊緣後盯住",
+        steps: ["頭不動。", "眼睛跟著目標到邊緣，停住後盯住它。", "看到兩個或盯不住，按空白鍵重來。"],
+        tip: "盯不住就按鍵重來。"
       },
       dual: {
-        title: "中央＋周邊：看中央、注意旁邊",
-        steps: ["眼睛留在中央的數字方格，用滑鼠依序點 1、2、3…。", "旁邊出現黃色圓形時按空白鍵，不要轉去看它。"],
+        title: "看中央，注意旁邊",
+        steps: ["眼睛留在中央，用滑鼠依序點 1、2、3…。", "旁邊出現黃色圓形，按空白鍵。"],
         tip: "眼睛不要離開中央。"
       }
     };
@@ -94808,17 +94805,17 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       if (!guide) return "";
       const gs = AppState.moduleSettings.gaze || {};
       const headMode = block.headMode || gs.headMode || "yaw";
-      const head = headMode === "pitch" ? "頭跟著節拍聲上下點頭（點頭，不是轉身體）。"
-        : headMode === "none" ? "頭保持不動。" : "頭跟著節拍聲左右轉頭（只轉頭，不轉身體）。";
+      const head = headMode === "pitch" ? "頭跟著「滴」聲上下點頭。"
+        : headMode === "none" ? "頭不動。" : "頭跟著「滴」聲左右轉頭。";
       const checkOn = (AppState.moduleSettings.pursuit || {}).checkTask === "on";
       const steps = guide.steps
         .filter((t) => block.module !== "pursuit" || checkOn || !t.includes("變紅"))
         .map((t) => t.replace("{head}", head));
       return `
         <div class="round-guide" style="text-align:left; max-width:640px; margin:12px auto 0; padding:14px 18px; border:1px solid #3a4150; border-radius:12px; background:rgba(255,255,255,0.03)">
-          <p class="eyebrow" style="margin:0 0 6px">本任務怎麼做 · ${escapeHtml(guide.title)}</p>
+          <p class="eyebrow" style="margin:0 0 6px">這一項：${escapeHtml(guide.title)}</p>
           <ol style="margin:0 0 8px 20px; padding:0; line-height:1.7">${steps.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ol>
-          <p class="field-hint" style="margin:0">提醒：${escapeHtml(guide.tip)}</p>
+          <p class="field-hint" style="margin:0">${escapeHtml(guide.tip)}</p>
         </div>`;
     }
 
@@ -94858,8 +94855,8 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
                   <button class="secondary-button" type="button" data-open-right-window>開啟右側螢幕視窗</button>
                 </div>` : ""}
               <div id="round-rest" hidden>
-                <p class="eyebrow">休息中 · 請放鬆眼睛，不用用力注視</p>
-                <p class="field-hint" style="margin:0 0 6px">可以閉上眼睛、輕輕眨眼，或看遠處放鬆；頭頸輕輕放鬆，喝口水。倒數結束後再按「開始」。若頭暈、頭痛或噁心沒有緩解，請告知治療師。</p>
+                <p class="eyebrow">休息中</p>
+                <p class="field-hint" style="margin:0 0 6px">閉上眼睛休息，放鬆頭頸。倒數結束再按「開始」。不舒服請告訴治療師。</p>
                 <div class="round-countdown" id="round-countdown" style="font-size:96px"></div>
                 <div aria-hidden="true" style="height:12px; max-width:420px; margin:0 auto 18px; background:#2a2f38; border-radius:8px; overflow:hidden">
                   <div id="round-rest-fill" style="height:100%; width:100%; background:#4aa3ff; transition:width 0.25s linear"></div>
@@ -94893,7 +94890,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
             const fill = displayElement.querySelector("#round-rest-fill");
             if (fill) fill.style.width = `${Math.max(0, Math.min(100, (preset.restUntil - Date.now()) / total * 100))}%`;
             const note = displayElement.querySelector("#round-rest-note");
-            if (note) note.textContent = `休息結束後可按「開始」：${MODULE_LABELS_ZH[block.module] || block.module}（第 ${presetInfo.round}/${presetInfo.rounds} 回合）`;
+            if (note) note.textContent = `下一項：${MODULE_LABELS_ZH[block.module] || block.module}（第 ${presetInfo.round}/${presetInfo.rounds} 回合）`;
           } else if (timer !== null) { window.clearInterval(timer); timer = null; }
         };
         updateRest();
