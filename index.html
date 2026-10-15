@@ -90350,7 +90350,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         code: "PURSUIT",
         name: "Smooth Pursuit",
         short: "Linear target tracking",
-        description: "Follow a target moving at a constant speed from the center toward selected screen-edge positions."
+        description: "Follow one ball smoothly along a chosen path: horizontal, vertical, diagonal, circle, figure-eight, random, or cycled directions."
       },
       saccade: {
         code: "SACCADE",
@@ -90391,7 +90391,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
     };
     // 僅開放 Gaze Stability Training (VOR 中央目標模組已隱藏)
     const ENABLED_MODULES = ["gaze", "pursuit", "distractor", "reaction"];
-    const isNoTrackModule = (k) => k === "dual" || k === "gaze" || k === "distractor" || k === "reaction";
+    const isNoTrackModule = (k) => k === "dual" || k === "gaze" || k === "distractor" || k === "reaction" || k === "pursuit";
 
     const ALL_DIRECTIONS = [
       "leftUp", "middleUp", "rightUp",
@@ -90420,7 +90420,9 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
     // 通用版起始設定：8 個方向、刺激置中
     const MODULE_DEFAULTS = {
       vor: { ballArcmin: 60, changeMs: 1000, totalSec: 60, background: "plain" },
-      pursuit: { mode: PREDICTABLE, stimulusType: "white_dot", ballArcmin: 60, speedArcminSec: 300, totalSec: 30, directions: [...ALL_DIRECTIONS], background: "plain" },
+      // 平順追視 (重寫版)：路徑/方向可選；等速或平滑；可選注意力檢核
+      pursuit: { totalSec: 60, path: "horizontal", amplitudeDeg: 15, speed: 8, speedProfile: "constant", ballDeg: 1.5, checkTask: "off",
+        background: "plain", gratingSpeed: 2, gratingContrast: "low", gratingBarDeg: 1, gratingDir: "horizontal" },
       saccade: { mode: PREDICTABLE, stimulusType: "white_dot", ballArcmin: 60, dwellMs: 1000, totalSec: 30, directions: [...ALL_DIRECTIONS], background: "plain",
         respTask: "off", respPct: 35, respArrow: "right" },
       fixation: { mode: PREDICTABLE, stimulusType: "white_dot", ballArcmin: 60, speedArcminSec: 300, holdSec: 2, totalSec: 30, directions: [...ALL_DIRECTIONS], background: "plain",
@@ -91775,6 +91777,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       if (moduleKey === "gaze") return gazeFormFields(settings);
       if (moduleKey === "distractor") return distractorFormFields(settings);
       if (moduleKey === "reaction") return reactionFormFields(settings);
+      if (moduleKey === "pursuit") return pursuitFormFields(settings);
       const isVor = moduleKey === "vor";
       const currentArcmin = Number(settings.ballArcmin) || (settings.ballArcsec ? Number(settings.ballArcsec) / 60 : 60);
       const currentDeg = (currentArcmin / 60).toFixed(2);
@@ -91954,6 +91957,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       if (moduleKey === "gaze") return readGazeSettings(form);
       if (moduleKey === "distractor") return readDistractorSettings(form);
       if (moduleKey === "reaction") return readReactionSettings(form);
+      if (moduleKey === "pursuit") return readPursuitSettings(form);
       const isVor = moduleKey === "vor";
       const fieldsByModule = {
         vor: ["ballArcmin", "changeMs", "totalSec"],
@@ -92201,6 +92205,13 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
 
     function updateModulePreview(form, moduleKey, extra = {}) {
       const output = form.querySelector("#target-preview");
+      if (moduleKey === "pursuit") {
+        const g = readPursuitSettings(form);
+        output.innerHTML = g.errors.length
+          ? `<span>平順追視</span><strong>請修正：${escapeHtml(g.errors.join("、"))}</strong>`
+          : `<span style="line-height:1.6">${escapeHtml(pursuitPreviewText(g.values))}</span>`;
+        return;
+      }
       if (moduleKey === "reaction") {
         const g = readReactionSettings(form);
         output.innerHTML = g.errors.length
@@ -92363,7 +92374,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       const parts = {
         vor: [duration, `切換 ${s.changeMs} ms`],
         saccade: [duration, `停留 ${s.dwellMs} ms`, directionCountText(s), s.respTask === "on" ? `按鍵作業 ${s.respPct}%` : null],
-        pursuit: [duration, `${s.speedArcminSec}′/s`, directionCountText(s)],
+        pursuit: [`${s.totalSec} 秒`, PURSUIT_PATH_LABELS[s.path] || "", `${s.speed}°/s`, `球 ${s.ballDeg}°`, s.checkTask === "on" ? "注意力檢核" : null],
         fixation: [duration, s.holdMode === "stamina" ? `耐力模式 ${s.holdSec}→${s.holdMaxSec} 秒` : `邊緣注視 ${s.holdSec} 秒`, directionCountText(s)],
         dual: [`${s.totalSec} 秒`, `${s.gridSize}×${s.gridSize} 方格`, `${{ right: "右", left: "左", both: "兩" }[s.side] || "右"}側 ${s.eccMinDeg}–${s.eccMaxDeg}°`,
           s.respMode === "patient" ? "個案按鍵" : "治療師按鍵", Number(s.distractorPct) > 0 ? `干擾 ${s.distractorPct}%` : null,
@@ -92376,7 +92387,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
           `目標 ${{ up: "↑", down: "↓", left: "←", right: "→" }[s.targetArrow] || "→"}`, `${s.arrowDeg}°`,
           { plain: "純黑", grating: "移動條紋", busy: "雜亂" }[s.background] || "純黑"]
       }[moduleKey] || [];
-      if (moduleKey === "dual" || moduleKey === "gaze" || moduleKey === "distractor" || moduleKey === "reaction") return parts.filter(Boolean).join(" · ");
+      if (moduleKey === "dual" || moduleKey === "gaze" || moduleKey === "distractor" || moduleKey === "reaction" || moduleKey === "pursuit") return parts.filter(Boolean).join(" · ");
       return [...parts, bg].filter(Boolean).join(" · ");
     }
 
@@ -94529,7 +94540,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
     const MODULE_INSTRUCTIONS_ZH = {
       vor: "眼睛一直盯著中央的數字，頭部依治療師指示緩慢轉動，並唸出看到的數字。",
       saccade: "頭保持不動，眼睛快速跳到新出現的目標上。",
-      pursuit: "頭保持不動，眼睛平順地跟著移動的目標。",
+      pursuit: "頭保持不動，眼睛平順地跟著白色球移動，不要跳著看。",
       fixation: "頭保持不動，眼睛跟著目標移到邊緣後盯住，直到目標回到中央。",
       dual: "用滑鼠依序點中央方格中的數字 1、2、3…，完成後會出現新的方格。",
       gaze: "眼睛盯住中央的點，頭部跟著節拍移動，看到指定的箭頭時按空白鍵。",
@@ -95837,7 +95848,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       show_progress_bar: false,
       default_iti: 0,
       on_data_update(data) {
-        if (data.trial_type === "eye-movement-training" || data.trial_type === "dual-task-training" || data.trial_type === "gaze-stability-training" || data.trial_type === "distractor-tracking" || data.trial_type === "reaction-jumps") queueTrainingUpload(data, jsPsych);
+        if (data.trial_type === "eye-movement-training" || data.trial_type === "dual-task-training" || data.trial_type === "gaze-stability-training" || data.trial_type === "distractor-tracking" || data.trial_type === "reaction-jumps" || data.trial_type === "pursuit-tracking") queueTrainingUpload(data, jsPsych);
         if (data.trial_type === "symptom-check" && AppState.profile.symptoms.upload) queueTrainingUpload(data, jsPsych);
       },
       on_interaction_data_update(data) {
@@ -96578,6 +96589,376 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       setTimeout(() => triggerFileDownload(`${stamp}-REACTION-測驗參數.csv`, paramCsv), 200);
     }
 
+    // ════════════════════════════════════════════════════
+    // ██  平順追視 (Smooth Pursuit) — 重寫版
+    //     概念參考 FoveaFlow Smooth Pursuit (MIT)；本程式自行實作。
+    //     單一目標球沿所選路徑 (水平／垂直／對角／圓形／8 字／隨機／方向輪替) 以固定速度平順移動；
+    //     頭保持不動，只用眼睛追。速度、球大小、路徑與幅度可調。可選「注意力檢核」
+    //     (球偶爾短暫變紅，按空白鍵) 以量化是否持續注視。不使用眼動儀。
+    // ════════════════════════════════════════════════════
+    const PURSUIT_PATHS = [
+      ["horizontal", "↔ 水平 左右", "最常用"],
+      ["vertical", "↕ 垂直 上下", ""],
+      ["diag_up", "⤢ 對角 ↗↙", ""],
+      ["diag_down", "⤡ 對角 ↘↖", ""],
+      ["circle_cw", "↻ 圓形 順時針", ""],
+      ["circle_ccw", "↺ 圓形 逆時針", ""],
+      ["eight", "∞ 8 字形", "進階"],
+      ["random", "〰 隨機曲線", "進階 (不可預測)"],
+      ["cycle", "✛ 方向輪替", "水平→垂直→對角"]
+    ];
+    const PURSUIT_PATH_LABELS = Object.fromEntries(PURSUIT_PATHS.map(([k, l]) => [k, l]));
+
+    // 路徑函式：回傳 t(秒) → 相對螢幕中央的位置 (度；x 右為正、y 上為正)
+    function pursuitPathFn(s, halfWDeg, halfHDeg) {
+      const A = s.amplitudeDeg;
+      const v = s.speed;
+      const sine = s.speedProfile === "smooth";
+      const lineDirs = {
+        horizontal: [1, 0], vertical: [0, 1],
+        diag_up: [Math.SQRT1_2, Math.SQRT1_2], diag_down: [Math.SQRT1_2, -Math.SQRT1_2]
+      };
+      const fitLine = (u) => Math.max(1, Math.min(A, halfWDeg / Math.max(Math.abs(u[0]), 1e-6), halfHDeg / Math.max(Math.abs(u[1]), 1e-6)));
+      const along = (Amax, t) => {
+        if (sine) return Amax * Math.sin(2 * Math.PI * v * t / (4 * Amax));
+        const q = ((v * t) % (4 * Amax) + 4 * Amax) % (4 * Amax);
+        return q < Amax ? q : q < 3 * Amax ? 2 * Amax - q : q - 4 * Amax;
+      };
+      if (lineDirs[s.path]) {
+        const u = lineDirs[s.path];
+        const Amax = fitLine(u);
+        return (t) => { const d = along(Amax, t); return { x: u[0] * d, y: u[1] * d }; };
+      }
+      if (s.path === "cycle") {
+        const order = ["horizontal", "vertical", "diag_up", "diag_down"].map((k) => lineDirs[k]);
+        // 四個方向共用同一幅度 (取可容納的最小值)，每個完整往返後在中央換下一個方向，位置連續
+        const Amc = Math.min(...order.map(fitLine));
+        return (t) => {
+          const k = Math.floor(v * t / (4 * Amc));
+          const idx = ((k % 4) + 4) % 4;
+          const d = along(Amc, t);
+          return { x: order[idx][0] * d, y: order[idx][1] * d };
+        };
+      }
+      if (s.path === "circle_cw" || s.path === "circle_ccw") {
+        const R = Math.max(1, Math.min(A, halfWDeg, halfHDeg));
+        const sign = s.path === "circle_cw" ? 1 : -1;
+        const w = v / R;
+        return (t) => ({ x: R * Math.sin(sign * w * t), y: R * Math.cos(sign * w * t) });
+      }
+      if (s.path === "eight") {
+        const Ax = Math.max(1, Math.min(A, halfWDeg));
+        const Ay = Math.max(1, Math.min(A * 0.6, halfHDeg));
+        let L = 0, px = 0, py = 0;
+        for (let i = 0; i <= 720; i += 1) {
+          const f = (i / 720) * 2 * Math.PI;
+          const x = Ax * Math.sin(f), y = Ay * Math.sin(2 * f);
+          if (i) L += Math.hypot(x - px, y - py);
+          px = x; py = y;
+        }
+        return (t) => { const f = 2 * Math.PI * v * t / L; return { x: Ax * Math.sin(f), y: Ay * Math.sin(2 * f) }; };
+      }
+      // random：多個正弦疊加的平滑不可預測曲線；以數值估計平均速度後校正到設定速度
+      const Ax = Math.max(1, Math.min(A, halfWDeg));
+      const Ay = Math.max(1, Math.min(A * 0.7, halfHDeg));
+      const ph = [0, 1, 2, 3].map(() => Math.random() * Math.PI * 2);
+      const curve = (tau) => ({
+        x: Ax * (0.65 * Math.sin(0.31 * tau + ph[0]) + 0.35 * Math.sin(0.77 * tau + ph[1])),
+        y: Ay * (0.65 * Math.sin(0.43 * tau + ph[2]) + 0.35 * Math.sin(0.91 * tau + ph[3]))
+      });
+      let len = 0, prev = curve(0);
+      for (let tau = 0.05; tau <= 120; tau += 0.05) {
+        const p = curve(tau);
+        len += Math.hypot(p.x - prev.x, p.y - prev.y);
+        prev = p;
+      }
+      const k = v / (len / 120);
+      return (t) => curve(t * k);
+    }
+
+    function pursuitFormFields(s) {
+      const sectionTitle = (text) => `<h3 class="span-all" style="grid-column:1/-1; margin:14px 0 0; font-size:16px">${text}</h3>`;
+      return `
+        ${numberField({ id: "total-sec", name: "totalSec", label: "訓練總時長 (Total duration)", value: s.totalSec, unit: "sec", hint: "建議每回 30–60 秒，症狀上升即停止" })}
+        ${sectionTitle("路徑與方向")}
+        ${optionButtons("path", "追視路徑 / 方向", PURSUIT_PATHS, s.path, 3)}
+        ${numberField({ id: "amplitude", name: "amplitudeDeg", label: "移動幅度 (單側)", value: s.amplitudeDeg, unit: "°", hint: "由中央到邊界的角度；實際受螢幕大小與觀看距離限制" })}
+        ${sectionTitle("速度與目標")}
+        ${numberField({ id: "speed", name: "speed", label: "速度 (Speed)", value: s.speed, unit: "°/s", hint: "平順追視建議由 5–10°/s 起；超過約 30°/s 眼睛容易改用跳視" })}
+        ${optionButtons("speedProfile", "速度曲線", [["constant", "等速", "轉折處瞬間折返"], ["smooth", "平滑", "兩端減速 (較溫和)"]], s.speedProfile === "smooth" ? "smooth" : "constant", 2)}
+        ${numberField({ id: "ball-deg", name: "ballDeg", label: "球大小 (Ball size)", value: s.ballDeg, unit: "°", hint: "越小越難；入門 1–2°" })}
+        ${sectionTitle("注意力檢核 (選用)")}
+        ${optionButtons("checkTask", "球偶爾變紅，看到按空白鍵", [["off", "關閉"], ["on", "開啟", "量化是否持續注視"]], s.checkTask === "on" ? "on" : "off", 2)}
+        ${sectionTitle("背景")}
+        ${optionButtons("background", "背景干擾", [
+          ["plain", "純黑", "入門"],
+          ["grating", "移動條紋", "動態條紋"],
+          ["busy", "雜亂背景", "靜態灰階圖形"]
+        ], s.background === "grating" || s.background === "busy" ? s.background : "plain", 3)}
+        <div class="field-grid span-all" id="grating-fields" style="grid-column:1/-1; ${s.background === "grating" ? "" : "display:none"}">
+          ${numberField({ id: "grating-speed", name: "gratingSpeed", label: "條紋速度", value: s.gratingSpeed, unit: "°/s", hint: "移動速度" })}
+          ${numberField({ id: "grating-bar", name: "gratingBarDeg", label: "條紋寬度", value: s.gratingBarDeg, unit: "°", hint: "單一條紋寬度" })}
+          ${optionButtons("gratingContrast", "條紋對比", [["low", "低"], ["medium", "中"], ["high", "高"]], s.gratingContrast, 3)}
+          ${optionButtons("gratingDir", "移動方向", [["horizontal", "水平移動"], ["vertical", "垂直移動"]], s.gratingDir, 2)}
+        </div>`;
+    }
+
+    function readPursuitSettings(form) {
+      const result = readPositiveNumbers(form, ["totalSec", "amplitudeDeg", "speed", "ballDeg", "gratingSpeed", "gratingBarDeg"]);
+      const value = (name) => form.elements.namedItem(name)?.value;
+      Object.assign(result.values, {
+        path: PURSUIT_PATH_LABELS[value("path")] ? value("path") : "horizontal",
+        speedProfile: value("speedProfile") === "smooth" ? "smooth" : "constant",
+        checkTask: value("checkTask") === "on" ? "on" : "off",
+        background: ["plain", "grating", "busy"].includes(value("background")) ? value("background") : "plain",
+        gratingContrast: ["low", "medium", "high"].includes(value("gratingContrast")) ? value("gratingContrast") : "low",
+        gratingDir: value("gratingDir") === "vertical" ? "vertical" : "horizontal"
+      });
+      const v = result.values;
+      if (v.speed && v.speed > 60) result.errors.push("速度 (≤ 60°/s)");
+      if (v.amplitudeDeg && v.amplitudeDeg > 60) result.errors.push("幅度 (≤ 60°)");
+      return result;
+    }
+
+    function pursuitReachText(v) {
+      if (!AppState.calibration) return "";
+      const c = AppState.calibration;
+      const halfW = Math.atan((c.screenWidthCm / 2) / c.viewingDistanceCm) * 180 / Math.PI;
+      const halfH = Math.atan((c.screenHeightCm / 2) / c.viewingDistanceCm) * 180 / Math.PI;
+      return `目前螢幕可達左右 ±${formatNumber(halfW, 1)}°、上下 ±${formatNumber(halfH, 1)}°，超出時會自動縮小幅度。`;
+    }
+
+    function pursuitPreviewText(v) {
+      const path = (PURSUIT_PATH_LABELS[v.path] || v.path);
+      const perCycle = v.path === "horizontal" || v.path === "vertical" || String(v.path).startsWith("diag") || v.path === "cycle"
+        ? `單程約 ${formatNumber(2 * v.amplitudeDeg / v.speed, 1)} 秒` : "";
+      return `路徑：${path}；速度 ${v.speed}°/s (${v.speedProfile === "smooth" ? "平滑" : "等速"})${perCycle ? "，" + perCycle : ""}；球 ${v.ballDeg}°。${pursuitReachText(v)} ` +
+        "進階順序建議：水平→垂直→對角→圓形→8 字→隨機；先降低速度與增大球，再逐步加快、縮小或加背景，一次只改一個條件，頭保持不動。";
+    }
+
+    function pursuitResponseInstruction(s) {
+      return `頭保持不動，眼睛平順地跟著白色球移動，不要跳著看。${s && s.checkTask === "on" ? "球短暫變紅時按空白鍵。" : ""}不舒服時按 ESC 停止。`;
+    }
+
+    class PursuitTrackingPlugin {
+      constructor(jsPsych) { this.jsPsych = jsPsych; }
+
+      trial(displayElement, trial) {
+        const s = trial.settings;
+        const calibration = trial.calibration;
+        const presetInfo = trial.preset_info || null;
+        const screenPixels = currentScreenPixels();
+        const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        let ended = false;
+        let sessionStart = null;
+        let rafId = null;
+        const timers = new Set();
+        const later = (fn, ms) => { const id = window.setTimeout(() => { timers.delete(id); fn(); }, Math.max(0, ms)); timers.add(id); return id; };
+
+        displayElement.innerHTML = `
+          <section id="training-stage" class="training-stage" style="cursor:none" role="application" aria-label="Smooth pursuit in progress">
+            <div id="pt-ball" style="position:absolute; left:0; top:0; border-radius:50%; background:#fff; will-change:transform;"></div>
+            <div id="pt-hint" style="position:absolute; left:0; right:0; bottom:4vh; text-align:center; color:#888; font-size:clamp(14px,1.6vw,20px); pointer-events:none;"></div>
+            <span class="sr-only">Training has started. Press Escape to stop.</span>
+          </section>`;
+        const stage = displayElement.querySelector("#training-stage");
+        const ball = displayElement.querySelector("#pt-ball");
+        const hint = displayElement.querySelector("#pt-hint");
+        const instruction = pursuitResponseInstruction(s);
+        hint.textContent = instruction;
+
+        const W = stage.getBoundingClientRect().width || window.innerWidth;
+        const H = stage.getBoundingClientRect().height || window.innerHeight;
+        const pxPerDeg = degToPx(1, "x", calibration, screenPixels);
+        applyDualBackground(stage, s, pxPerDeg, Math.round(W), Math.round(H));
+
+        const ballPx = Math.max(8, s.ballDeg * pxPerDeg);
+        const margin = ballPx / 2 + 6;
+        const cx = W / 2, cy = H / 2;
+        const halfWDeg = (W / 2 - margin) / pxPerDeg;
+        const halfHDeg = (H / 2 - margin) / pxPerDeg;
+        const pathFn = pursuitPathFn(s, halfWDeg, halfHDeg);
+        Object.assign(ball.style, { width: `${ballPx}px`, height: `${ballPx}px` });
+        const draw = (t) => {
+          const p = pathFn(t);
+          ball.style.transform = `translate(${cx + p.x * pxPerDeg - ballPx / 2}px, ${cy - p.y * pxPerDeg - ballPx / 2}px)`;
+        };
+        draw(0);
+
+        // ── 注意力檢核：球短暫變紅，空白鍵回應 ──
+        const checks = [];
+        const falsePresses = [];
+        let openCheck = null;
+        const CHECK_MS = 450, CHECK_WINDOW_MS = 1500;
+        const scheduleCheck = () => {
+          if (ended || s.checkTask !== "on") return;
+          later(() => {
+            if (ended) return;
+            ball.style.background = "#ff4d4d";
+            const ev = { n: checks.length + 1, onset_ms: round(performance.now() - sessionStart, 1), outcome: null, rt_ms: null };
+            checks.push(ev);
+            openCheck = ev;
+            later(() => { ball.style.background = "#fff"; }, CHECK_MS);
+            later(() => { if (ev.outcome === null) ev.outcome = "miss"; if (openCheck === ev) openCheck = null; }, CHECK_WINDOW_MS);
+            scheduleCheck();
+          }, 3000 + Math.random() * 3000);
+        };
+        const respond = () => {
+          if (ended || sessionStart === null) return;
+          const t = performance.now() - sessionStart;
+          if (openCheck && openCheck.outcome === null) {
+            openCheck.rt_ms = round(t - openCheck.onset_ms, 1);
+            openCheck.outcome = "hit";
+            openCheck = null;
+          } else {
+            falsePresses.push({ time_ms: round(t, 1) });
+          }
+        };
+
+        const startMs = { v: null };
+        const frame = (now) => {
+          if (ended) return;
+          if (startMs.v === null) startMs.v = now;
+          draw((now - startMs.v) / 1000);
+          rafId = window.requestAnimationFrame(frame);
+        };
+
+        const onKey = (event) => {
+          if (event.key === "Escape") { event.preventDefault(); endTrial("escape"); return; }
+          if (event.repeat) return;
+          if (s.checkTask === "on" && (event.key === " " || event.code === "Space")) { event.preventDefault(); respond(); }
+        };
+        window.addEventListener("keydown", onKey, true);
+        const onFullscreenChange = () => {
+          if (trial.fullscreen_entered && !fullscreenElement() && !ended) endTrial("fullscreen_exit");
+        };
+        const onVisibility = () => { if (document.visibilityState === "hidden") endTrial("visibility_hidden"); };
+        document.addEventListener("fullscreenchange", onFullscreenChange);
+        document.addEventListener("visibilitychange", onVisibility);
+
+        const endTrial = (reason) => {
+          if (ended) return;
+          ended = true;
+          const endedAt = performance.now();
+          timers.forEach((id) => window.clearTimeout(id));
+          timers.clear();
+          if (rafId !== null) window.cancelAnimationFrame(rafId);
+          checks.forEach((c) => { if (c.outcome === null) c.outcome = "miss"; });
+          window.removeEventListener("keydown", onKey, true);
+          document.removeEventListener("fullscreenchange", onFullscreenChange);
+          document.removeEventListener("visibilitychange", onVisibility);
+          if (stage.__gratingAnim) stage.__gratingAnim.cancel();
+          const hits = checks.filter((c) => c.outcome === "hit");
+          const rts = hits.map((c) => c.rt_ms).sort((a, b) => a - b);
+          const check = s.checkTask === "on" ? {
+            checks: checks.length,
+            hits: hits.length,
+            misses: checks.length - hits.length,
+            hit_rate_pct: checks.length ? round(hits.length / checks.length * 100, 1) : null,
+            median_rt_ms: rts.length ? rts[Math.floor(rts.length / 2)] : null,
+            false_presses: falsePresses.length
+          } : null;
+          const actualMs = sessionStart === null ? 0 : endedAt - sessionStart;
+          exportPursuitCsv({ sessionId, settings: s, calibration, check, checks, reason, actualMs, presetInfo });
+          this.jsPsych.finishTrial({
+            session_id: sessionId,
+            module: "pursuit",
+            mode: "continuous",
+            settings: { ...s },
+            calibration: { ...calibration },
+            end_reason: reason,
+            completed_targets: check ? check.hits : 0,
+            actual_duration_ms: round(actualMs, 1),
+            planned_duration_ms: s.totalSec * 1000,
+            fullscreen_entered: Boolean(trial.fullscreen_entered),
+            pursuit: { check, checks, false_presses: falsePresses },
+            preset: presetInfo,
+            ended_at: new Date().toISOString()
+          });
+          void exitFullscreenSafely();
+        };
+
+        // 3 秒預備 (球在起點靜止)，之後開始移動與計時
+        let remain = 3;
+        const tick = () => {
+          if (ended) return;
+          hint.textContent = `${instruction}　${remain > 0 ? remain : ""}`;
+          remain -= 1;
+          if (remain >= 0) later(tick, 1000);
+        };
+        tick();
+        later(() => {
+          if (ended) return;
+          hint.textContent = "";
+          sessionStart = performance.now();
+          rafId = window.requestAnimationFrame(frame);
+          scheduleCheck();
+          later(() => endTrial("duration_complete"), s.totalSec * 1000);
+        }, 3400);
+      }
+    }
+
+    PursuitTrackingPlugin.info = {
+      name: "pursuit-tracking",
+      version: "2.0.0",
+      parameters: {
+        settings: { type: ParameterType.OBJECT },
+        calibration: { type: ParameterType.OBJECT },
+        preset_info: { type: ParameterType.OBJECT, default: null },
+        fullscreen_entered: { type: ParameterType.BOOL, default: false }
+      },
+      data: {
+        session_id: { type: ParameterType.STRING },
+        module: { type: ParameterType.STRING },
+        end_reason: { type: ParameterType.STRING },
+        actual_duration_ms: { type: ParameterType.FLOAT },
+        completed_targets: { type: ParameterType.INT }
+      }
+    };
+
+    function exportPursuitCsv({ sessionId, settings: s, calibration, check, checks, reason, actualMs, presetInfo }) {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+      const params = [
+        ["測驗日期", "test_date", `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, "-", ""],
+        ["受試者代號", "subject_id", subjectId || "-", "-", ""],
+        ["測驗序號", "session_id", sessionId, "-", ""],
+        ["模組", "module_name", MODULES.pursuit.name, "-", "PURSUIT"],
+        ["結束原因", "end_reason", reason, "-", ""],
+        ["實際時長", "actual_total_sec", round(actualMs / 1000, 2), "秒 (s)", `設定 ${s.totalSec} 秒`],
+        ["觀看距離", "viewing_distance_cm", calibration.viewingDistanceCm, "cm", ""],
+        ["路徑", "path", PURSUIT_PATH_LABELS[s.path] || s.path, "-", `幅度 ${s.amplitudeDeg}°`],
+        ["速度", "speed_dps", s.speed, "°/s", s.speedProfile === "smooth" ? "平滑" : "等速"],
+        ["球大小", "ball_deg", s.ballDeg, "°", ""],
+        ["背景", "background", { plain: "純黑", grating: "移動條紋", busy: "雜亂" }[s.background], "-", ""],
+        ["注意力檢核", "check_task", s.checkTask === "on" ? "開啟" : "關閉", "-",
+          check ? `命中 ${check.hits}/${check.checks}（${check.hit_rate_pct ?? "-"}%），中位反應 ${check.median_rt_ms ?? "-"} ms，誤按 ${check.false_presses}` : ""]
+      ];
+      if (presetInfo) params.push(["訓練處方", "preset", `區塊 ${presetInfo.block}/${presetInfo.blockCount}，回合 ${presetInfo.round}/${presetInfo.rounds}`, "-", EYE_CONDITIONS[presetInfo.eye] || presetInfo.eye]);
+      const paramCsv = [["參數項目", "參數代碼", "設定數值", "單位", "詳細說明"].join(","), ...params.map((r) => r.map(csvEscape).join(","))].join("\r\n");
+      triggerFileDownload(`${stamp}-PURSUIT-測驗參數.csv`, paramCsv);
+      if (check && checks.length) {
+        const eventCsv = [
+          ["序號", "出現時間 (s)", "結果", "反應時間 (ms)"].map(csvEscape).join(","),
+          ...checks.map((c) => [c.n, round(c.onset_ms / 1000, 2), c.outcome === "hit" ? "命中" : "遺漏", c.rt_ms ?? ""].map(csvEscape).join(","))
+        ].join("\r\n");
+        setTimeout(() => triggerFileDownload(`${stamp}-PURSUIT-檢核事件.csv`, eventCsv), 200);
+      }
+    }
+
+    const pursuitTrainingTrial = {
+      type: PursuitTrackingPlugin,
+      settings: () => AppState.pending.settings,
+      calibration: () => AppState.pending.calibration,
+      preset_info: () => AppState.pending.presetInfo,
+      fullscreen_entered: () => AppState.pending.fullscreenEntered,
+      on_finish(data) {
+        AppState.lastSession = { ...data };
+        AppState.pending = null;
+        afterTrainingRound(data);
+      }
+    };
     const reactionTrainingTrial = {
       type: ReactionJumpsPlugin,
       settings: () => AppState.pending.settings,
@@ -96772,6 +97153,10 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         {
           timeline: [dualTrainingTrial],
           conditional_function: () => Boolean(AppState.pending && AppState.pending.module === "dual")
+        },
+        {
+          timeline: [pursuitTrainingTrial],
+          conditional_function: () => Boolean(AppState.pending && AppState.pending.module === "pursuit")
         },
         {
           timeline: [reactionTrainingTrial],
