@@ -90120,20 +90120,17 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
 
   (() => {
     // ════════════════════════════════════════════════════
-    // ██  個案姓名與 Webhook 設定 ── 請在此修改為實際個案姓名與 Webhook
+    // ██  個案姓名設定
     // ════════════════════════════════════════════════════
     // 通用版：不含個案姓名、代號與對外通知；需要時由治療師另外設定
     const PATIENT_NAME = "";
-    // 對外通知 (Discord) 只送代號，不送姓名
     const PATIENT_CODE = "";
-    // 居家版：單一螢幕 (不支援右側第二螢幕)，設定與診所版分開儲存
-    const HOME_EDITION = true;
+    // false = 支援右側第二螢幕 (預設啟用)；螢幕尺寸、距離由使用者自行輸入
+    const HOME_EDITION = false;
     const HOME_SUBJECT_ID = "";
-    // 通用版：關閉 Discord 通知、使用期限鎖定與 DataPipe 自動上傳
-    const ENABLE_DISCORD_NOTIFY = false;
+    // 通用版：關閉使用期限鎖定與 DataPipe 自動上傳
     const ENABLE_EXPIRY_LOCK = false;
     const ENABLE_DATAPIPE_UPLOAD = false;
-    const DISCORD_WEBHOOK_URL = "";
 
     const SUBTEST_NAMES = {
       vor: "VOR",
@@ -90141,25 +90138,6 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       saccade: "Saccade",
       fixation: "Fixation"
     };
-
-    async function sendDiscordNotification(moduleKey) {
-      if (!ENABLE_DISCORD_NOTIFY || !DISCORD_WEBHOOK_URL) return;
-      const moduleName = SUBTEST_NAMES[moduleKey] || (MODULES[moduleKey] && MODULES[moduleKey].code) || moduleKey;
-      const message = `${PATIENT_CODE}已完成一次${moduleName}！`;
-      try {
-        await fetch(DISCORD_WEBHOOK_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            content: message
-          })
-        });
-      } catch (err) {
-        console.error("Discord webhook notification failed:", err);
-      }
-    }
 
     // ════════════════════════════════════════════════════
     // ██  時間炸彈：首次啟動後 1 個月鎖死
@@ -90399,6 +90377,8 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         description: "Keep the central target stable while moving your head to the beat, and press Space when the designated arrow appears."
       }
     };
+    // 僅開放 VOR 與 Gaze Stability Training
+    const ENABLED_MODULES = ["vor", "gaze"];
     const isNoTrackModule = (k) => k === "dual" || k === "gaze";
 
     const ALL_DIRECTIONS = [
@@ -90427,7 +90407,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
 
     // 通用版起始設定：8 個方向、刺激置中
     const MODULE_DEFAULTS = {
-      vor: { ballArcmin: 60, changeMs: 1000, totalSec: 20, background: "plain" },
+      vor: { ballArcmin: 60, changeMs: 1000, totalSec: 60, background: "plain" },
       pursuit: { mode: PREDICTABLE, stimulusType: "white_dot", ballArcmin: 60, speedArcminSec: 300, totalSec: 30, directions: [...ALL_DIRECTIONS], background: "plain" },
       saccade: { mode: PREDICTABLE, stimulusType: "white_dot", ballArcmin: 60, dwellMs: 1000, totalSec: 30, directions: [...ALL_DIRECTIONS], background: "plain",
         respTask: "off", respPct: 35, respArrow: "right" },
@@ -90445,7 +90425,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       },
       // 凝視穩定訓練 (VOR x1 viewing / dynamic visual acuity 範式)；刺激固定在螢幕中央
       gaze: {
-        totalSec: 60, headMode: "yaw", paceHz: 0.8, cueMode: "audio",
+        totalSec: 60, headMode: "yaw", paceHz: 0.6, cueMode: "audio",
         targetArrow: "right", targetPct: 40, arrowDeg: 1, stimMs: 150,
         isiMinSec: 1.5, isiMaxSec: 3.5, respWindowMs: 1200,
         background: "plain", gratingSpeed: 2, gratingContrast: "low", gratingBarDeg: 1, gratingDir: "horizontal"
@@ -90486,14 +90466,15 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       symptoms: { enabled: true, itemStop: 4, riseStop: 5, upload: false },
       preset: {
         blocks: [
-          { module: "pursuit", rounds: 2, restSec: 90, eye: "both" },
-          { module: "saccade", rounds: 2, restSec: 90, eye: "both" },
-          { module: "fixation", rounds: 2, restSec: 90, eye: "both" }
+          // 慢性 UVH 建議劑量 (Hall 2016 CPG)：每回 60 秒；每次 5 回 (垂直 3 + 水平 2 = 60/40)，
+          // 每日 4–5 次 (共 20–25 分鐘)，持續 4–6 週；症狀檢核於每次訓練前後 (兩次訓練之間)
+          { module: "gaze", rounds: 3, restSec: 30, eye: "both", headMode: "pitch" },
+          { module: "gaze", rounds: 2, restSec: 30, eye: "both", headMode: "yaw" }
         ]
       },
       lock: { locked: false, code: "" },
       // 右側第二螢幕：假設與主螢幕並排、同一平面、同一觀看距離
-      rightMonitor: { enabled: false, widthCm: 53, heightCm: 30, gapCm: 2, vertOffsetCm: 0 }
+      rightMonitor: { enabled: true, widthCm: 48.5, heightCm: 27.5, gapCm: 2, vertOffsetCm: 0 }
     };
 
     function readProfile() {
@@ -90504,7 +90485,10 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
           for (const section of ["zone", "zoneMono", "symptoms", "lock", "rightMonitor"]) {
             if (parsed[section] && typeof parsed[section] === "object") Object.assign(profile[section], parsed[section]);
           }
-          if (parsed.preset && Array.isArray(parsed.preset.blocks)) profile.preset.blocks = parsed.preset.blocks;
+          if (parsed.preset && Array.isArray(parsed.preset.blocks)) {
+            const kept = parsed.preset.blocks.filter((b) => b && ENABLED_MODULES.includes(b.module));
+            if (kept.length) profile.preset.blocks = kept;
+          }
           if (HOME_EDITION) profile.rightMonitor.enabled = false;
         }
       } catch (error) { /* 使用預設值 */ }
@@ -91562,7 +91546,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
     }
 
     function moduleCards() {
-      return Object.entries(MODULES).map(([key, module]) => `
+      return Object.entries(MODULES).filter(([key]) => ENABLED_MODULES.includes(key)).map(([key, module]) => `
         <article class="module-card" data-module="${key}">
           <div class="module-top">
             <span class="module-code">${module.code}</span>
@@ -92339,7 +92323,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         dual: [`${s.totalSec} 秒`, `${s.gridSize}×${s.gridSize} 方格`, `${{ right: "右", left: "左", both: "兩" }[s.side] || "右"}側 ${s.eccMinDeg}–${s.eccMaxDeg}°`,
           s.respMode === "patient" ? "個案按鍵" : "治療師按鍵", Number(s.distractorPct) > 0 ? `干擾 ${s.distractorPct}%` : null,
           { plain: "純黑", grating: "移動條紋", busy: "雜亂" }[s.background] || "純黑"],
-        gaze: [`${s.totalSec} 秒`, { none: "頭不動", yaw: "左右轉頭", pitch: "上下點頭" }[s.headMode] || "", s.headMode !== "none" ? `${s.paceHz} Hz` : null,
+        gaze: [`${s.totalSec} 秒`, { none: "頭不動", yaw: "左右轉頭", pitch: "上下點頭" }[s.headMode] || "", s.headMode !== "none" ? `${s.paceHz} Hz (${Math.round(s.paceHz * 120)} bpm)` : null,
           `目標 ${{ up: "↑", down: "↓", left: "←", right: "→" }[s.targetArrow] || "→"}`, `${s.arrowDeg}°`,
           { plain: "純黑", grating: "移動條紋", busy: "雜亂" }[s.background] || "純黑"]
       }[moduleKey] || [];
@@ -92543,9 +92527,10 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       return `
         <div class="preset-row" data-index="${index}">
           <span class="preset-no">${index + 1}</span>
-          <div class="field"><label>模組</label><select data-field="module">${options(Object.entries(MODULES).map(([k, m]) => [k, `${m.code}`]), block.module)}</select></div>
+          <div class="field"><label>模組</label><select data-field="module">${options(Object.entries(MODULES).filter(([k]) => ENABLED_MODULES.includes(k)).map(([k, m]) => [k, `${m.code}`]), block.module)}</select></div>
           <div class="field"><label>回合數</label><div class="input-wrap"><input data-field="rounds" type="number" min="1" max="10" step="1" value="${block.rounds}"></div></div>
           <div class="field"><label>回合間休息</label><div class="input-wrap"><input data-field="restSec" type="number" min="0" step="5" value="${block.restSec}"><span class="unit">秒</span></div></div>
+          ${block.module === "gaze" ? `<div class="field"><label>頭部方向</label><select data-field="headMode">${options([["pitch", "上下點頭 (垂直)"], ["yaw", "左右轉頭 (水平)"]], block.headMode || "yaw")}</select></div>` : ""}
           <div class="field"><label>用眼方式</label><select data-field="eye">${options(Object.entries(EYE_CONDITIONS), block.eye)}</select></div>
           <button class="icon-button" type="button" data-remove-block aria-label="刪除區塊 ${index + 1}">×</button>
           <p class="field-hint">${escapeHtml(moduleSettingSummary(block.module))}</p>
@@ -94751,7 +94736,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
 
         startButton.addEventListener("click", () => {
           if (done || startButton.disabled) return;
-          const settings = AppState.moduleSettings[block.module];
+          const settings = { ...AppState.moduleSettings[block.module], ...(block.module === "gaze" && block.headMode ? { headMode: block.headMode } : {}) };
           const fitError = targetFitError(block.module, settings, AppState.calibration);
           if (fitError) { setError(error, fitError); return; }
           const eyeTrackingSource = isNoTrackModule(block.module) ? EYE_SOURCE_OFF : AppState.eyeTracking.source;
@@ -94832,7 +94817,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         preset.restUntil = Date.now() + (Number(block.restSec) || 0) * 1000;
       }
       sym.postContext = context;
-      sym.needPost = symptomsOn && (lastRoundOfBlock || !preset.active);
+      sym.needPost = symptomsOn && !preset.active; // 症狀檢核在整次訓練結束後 (兩次訓練之間)，不在區塊之間
     }
 
     // ════════════════════════════════════════════════════
@@ -95230,7 +95215,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
           ["pitch", "上下點頭", "垂直 VOR"],
           ["none", "頭不動", "基準線 / 入門"]
         ], s.headMode, 3)}
-        ${numberField({ id: "pace-hz", name: "paceHz", label: "節拍速度 (Pace)", value: s.paceHz, unit: "Hz", hint: "節拍器速度：每一聲滴答頭轉到另一側；完整左→右→左為 1 次。建議由 0.8 Hz (約 100°/s) 起，每週約 +0.2 Hz，漸進至 1–1.2 Hz (約 125–150°/s)" })}
+        ${numberField({ id: "pace-hz", name: "paceHz", label: "節拍速度 (Pace)", value: s.paceHz, unit: "Hz", hint: "節拍器速度：每一聲滴答頭轉到另一側；完整左→右→左為 1 次。1 Hz = 2 聲滴答/秒 = 120 bpm（0.6 Hz = 72 bpm，約 75°/s）。建議由 0.6 Hz (72 bpm) 起，每週約 +0.2 Hz (+24 bpm)，目標清楚可辨識才加快，漸進至 1–1.2 Hz (120–144 bpm)" })}
         ${sectionTitle("箭頭作業 (Go / No-go)")}
         ${optionButtons("targetArrow", "指定箭頭 (看到才按空白鍵)", [["up", "↑ 上"], ["down", "↓ 下"], ["left", "← 左"], ["right", "→ 右"]], s.targetArrow, 4)}
         ${numberField({ id: "target-pct", name: "targetPct", label: "指定箭頭出現比例", value: s.targetPct, unit: "%", hint: "其餘為其他三個方向的干擾箭頭 (10–90%)" })}
@@ -95849,7 +95834,6 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
           AppState.lastSession = { ...data };
           AppState.pending = null;
           afterTrainingRound(data);
-          sendDiscordNotification(data.module);
         }
       };
       if (withWebGazer) {
@@ -95873,7 +95857,6 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         AppState.lastSession = { ...data };
         AppState.pending = null;
         afterTrainingRound(data);
-        sendDiscordNotification(data.module);
       }
     };
     const gazeTrainingTrial = {
@@ -95886,7 +95869,6 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         AppState.lastSession = { ...data };
         AppState.pending = null;
         afterTrainingRound(data);
-        sendDiscordNotification(data.module);
       }
     };
     const webgazerTrainingTrial = WEBGAZER_COMPONENTS_AVAILABLE ? makeTrainingTrial(EYE_SOURCE_WEBGAZER) : null;
