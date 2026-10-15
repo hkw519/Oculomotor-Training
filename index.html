@@ -90421,7 +90421,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
     const MODULE_DEFAULTS = {
       vor: { ballArcmin: 60, changeMs: 1000, totalSec: 60, background: "plain" },
       // 平順追視 (重寫版)：路徑/方向可選；等速或平滑；可選注意力檢核
-      pursuit: { totalSec: 60, path: "horizontal", amplitudeDeg: 15, speed: 8, speedProfile: "constant", ballDeg: 1.5, checkTask: "off",
+      pursuit: { totalSec: 20, path: "random", amplitudeDeg: 15, speed: 5, speedProfile: "smooth", ballDeg: 1.5, checkTask: "on",
         background: "plain", gratingSpeed: 2, gratingContrast: "low", gratingBarDeg: 1, gratingDir: "horizontal" },
       saccade: { mode: PREDICTABLE, stimulusType: "white_dot", ballArcmin: 60, dwellMs: 1000, totalSec: 30, directions: [...ALL_DIRECTIONS], background: "plain",
         respTask: "off", respPct: 35, respArrow: "right" },
@@ -90439,8 +90439,8 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       },
       // 反應跳視：目標球瞬間跳位，球內數字(0–9)/箭頭，Go/No-go 以滑鼠左鍵作答
       reaction: {
-        totalSec: 60, stimulus: "number", responseMode: "click", targetDigit: "random", targetArrow: "right", targetPct: 40,
-        ballDeg: 2, arrowPct: 60, intervalMs: 1500, jitterPct: 20, minJumpDeg: 8, rangeDeg: 20,
+        totalSec: 45, stimulus: "number", responseMode: "click", targetDigit: "random", targetArrow: "right", targetPct: 35,
+        ballDeg: 2, arrowPct: 50, intervalMs: 1500, jitterPct: 20, minJumpDeg: 10, rangeDeg: 20,
         background: "plain", gratingSpeed: 2, gratingContrast: "low", gratingBarDeg: 1, gratingDir: "horizontal"
       },
       // 干擾追視：最亮目標球 + 較暗干擾球，頭不動
@@ -90493,8 +90493,13 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         blocks: [
           // 慢性 UVH 建議劑量 (Hall 2016 CPG)：每回 60 秒；每次 5 回 (垂直 3 + 水平 2 = 60/40)，
           // 每日 4–5 次 (共 20–25 分鐘)，持續 4–6 週；症狀檢核於每次訓練前後 (兩次訓練之間)
-          { module: "gaze", rounds: 3, restSec: 30, eye: "both", headMode: "pitch" },
-          { module: "gaze", rounds: 2, restSec: 30, eye: "both", headMode: "yaw" }
+          // 開頭先做 20 秒平順追視 (隨機曲線、5°/s、平滑、注意力檢核) 作為暖身
+          // afterSec = 本區塊最後一回合結束後、進入下一區塊前的休息 (未設定則同 restSec)
+          { module: "pursuit", rounds: 1, restSec: 30, eye: "both" },
+          { module: "gaze", rounds: 2, restSec: 30, afterSec: 60, eye: "both", headMode: "pitch" },
+          { module: "gaze", rounds: 2, restSec: 30, afterSec: 60, eye: "both", headMode: "yaw" },
+          // 反應跳視：數字 0–9、滑鼠左鍵 Go/No-go (目標每輪隨機、出現比例 35%)，45 秒
+          { module: "reaction", rounds: 1, restSec: 30, eye: "both" }
         ]
       },
       lock: { locked: false, code: "" },
@@ -92419,8 +92424,10 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         const s = AppState.moduleSettings[block.module] || {};
         const rounds = Math.max(1, Number(block.rounds) || 1);
         total += rounds * (Number(s.totalSec) || 0);
-        const restCount = index === blocks.length - 1 ? rounds - 1 : rounds;
-        total += restCount * (Number(block.restSec) || 0);
+        const rest = Number(block.restSec) || 0;
+        const after = block.afterSec === undefined || block.afterSec === "" || block.afterSec === null ? rest : (Number(block.afterSec) || 0);
+        total += (rounds - 1) * rest;
+        if (index < blocks.length - 1) total += after;
       });
       return total;
     }
@@ -92613,6 +92620,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
           <div class="field"><label>回合數</label><div class="input-wrap"><input data-field="rounds" type="number" min="1" max="10" step="1" value="${block.rounds}"></div></div>
           <div class="field"><label>回合間休息</label><div class="input-wrap"><input data-field="restSec" type="number" min="0" step="5" value="${block.restSec}"><span class="unit">秒</span></div></div>
           ${block.module === "gaze" ? `<div class="field"><label>頭部方向</label><select data-field="headMode">${options([["pitch", "上下點頭 (垂直)"], ["yaw", "左右轉頭 (水平)"]], block.headMode || "yaw")}</select></div>` : ""}
+          <div class="field"><label>區塊後休息</label><div class="input-wrap"><input data-field="afterSec" type="number" min="0" step="5" value="${block.afterSec === undefined || block.afterSec === null ? "" : block.afterSec}" placeholder="同回合間"><span class="unit">秒</span></div></div>
           <div class="field"><label>用眼方式</label><select data-field="eye">${options(Object.entries(EYE_CONDITIONS), block.eye)}</select></div>
           <button class="icon-button" type="button" data-remove-block aria-label="刪除區塊 ${index + 1}">×</button>
           <p class="field-hint">${escapeHtml(moduleSettingSummary(block.module))}</p>
@@ -92778,7 +92786,11 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
             const block = blocks[Number(row.dataset.index)];
             row.querySelectorAll("[data-field]").forEach((input) => {
               const key = input.dataset.field;
-              block[key] = key === "rounds" || key === "restSec" ? Number(input.value) : input.value;
+              if (key === "afterSec") {
+                if (input.value === "") delete block.afterSec; else block.afterSec = Number(input.value);
+              } else {
+                block[key] = key === "rounds" || key === "restSec" ? Number(input.value) : input.value;
+              }
             });
           });
         };
@@ -94762,7 +94774,14 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
                   <p id="round-right-status" class="field-hint" style="margin:0 0 8px"></p>
                   <button class="secondary-button" type="button" data-open-right-window>開啟右側螢幕視窗</button>
                 </div>` : ""}
-              <div id="round-rest" hidden><p class="eyebrow">休息中</p><div class="round-countdown" id="round-countdown"></div></div>
+              <div id="round-rest" hidden>
+                <p class="eyebrow">休息中 · 請放鬆眼睛，不用用力注視</p>
+                <div class="round-countdown" id="round-countdown" style="font-size:96px"></div>
+                <div aria-hidden="true" style="height:12px; max-width:420px; margin:0 auto 18px; background:#2a2f38; border-radius:8px; overflow:hidden">
+                  <div id="round-rest-fill" style="height:100%; width:100%; background:#4aa3ff; transition:width 0.25s linear"></div>
+                </div>
+                <p class="field-hint" id="round-rest-note" style="margin-bottom:16px"></p>
+              </div>
               <p id="round-error" class="form-error" role="alert"></p>
               <div class="round-actions">
                 <button class="primary-button" type="button" data-round-start>開始</button>
@@ -94784,8 +94803,14 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
           restBox.hidden = !resting;
           startButton.disabled = resting;
           if (skipButton) skipButton.hidden = !resting;
-          if (resting) countdown.textContent = `${remaining}`;
-          else if (timer !== null) { window.clearInterval(timer); timer = null; }
+          if (resting) {
+            countdown.textContent = `${remaining}`;
+            const total = Math.max(1, Number(preset.restTotalMs) || remaining * 1000);
+            const fill = displayElement.querySelector("#round-rest-fill");
+            if (fill) fill.style.width = `${Math.max(0, Math.min(100, (preset.restUntil - Date.now()) / total * 100))}%`;
+            const note = displayElement.querySelector("#round-rest-note");
+            if (note) note.textContent = `休息結束後可按「開始」：${MODULE_LABELS_ZH[block.module] || block.module}（第 ${presetInfo.round}/${presetInfo.rounds} 回合）`;
+          } else if (timer !== null) { window.clearInterval(timer); timer = null; }
         };
         updateRest();
         if (preset.restUntil > Date.now()) timer = window.setInterval(updateRest, 250);
@@ -94901,7 +94926,12 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         preset.endReason = "completed";
         context.presetCompleted = true;
       } else {
-        preset.restUntil = Date.now() + (Number(block.restSec) || 0) * 1000;
+        const baseRest = Number(block.restSec) || 0;
+        const restSec = lastRoundOfBlock && block.afterSec !== undefined && block.afterSec !== "" && block.afterSec !== null
+          ? (Number(block.afterSec) || 0)
+          : baseRest;
+        preset.restTotalMs = restSec * 1000;
+        preset.restUntil = Date.now() + restSec * 1000;
       }
       sym.postContext = context;
       sym.needPost = symptomsOn && !preset.active; // 症狀檢核在整次訓練結束後 (兩次訓練之間)，不在區塊之間
