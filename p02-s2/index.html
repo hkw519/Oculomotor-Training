@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="dark">
   <meta name="referrer" content="no-referrer">
   <title>眼動訓練系統 · P02</title>
-  <meta name="release" content="P02 v1.0 base=dev 4985563 (peripheral awareness: centred answers, black screen between answers, tablet stop button)">
+  <meta name="release" content="P02 v1.1 base=dev 1358fe9 (peripheral awareness as in 4985563; client view hides the eye-tracking choice)">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800;900&display=swap" rel="stylesheet">
@@ -90570,7 +90570,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       symptoms: { enabled: true, itemStop: 4, riseStop: 5, upload: false },
       preset: {
         blocks: [
-          {"module": "periph", "rounds": 1, "restSec": 30, "eye": "both", "settings": {"taskLevel": "3", "positions": "8", "rings": "3", "trials": 16}}
+          {"module": "periph", "rounds": 1, "restSec": 30, "eye": "both", "settings": {"taskLevel": "3", "positions": "8", "rings": "1", "trials": 16}}
         ]
       },
       lock: { locked: false, code: "" },
@@ -91608,6 +91608,8 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
                       <p class="field-hint">輸入受試者代號，將自動同步記錄於每次測驗生成的 CSV 報告中</p>
                     </div>
                     ${calibrationFields(AppState.calibration || {})}
+                    <!-- 個案檢視不顯示眼動儀選項 (個案在家沒有眼動儀)，固定為 Off；治療師 (#therapist) 與診間仍可選 -->
+                    <div id="initial-eye-tracking-block" ${CLIENT_VIEW ? "hidden" : ""}>
                     <div class="field">
                       <label for="initial-eye-tracking-source">Eye-tracking source</label>
                       <select id="initial-eye-tracking-source" name="eyeTrackingSource">
@@ -91621,6 +91623,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
                       <input id="initial-tobii-calibrated" name="tobiiCalibrated" type="checkbox" disabled>
                       <span>I confirm that this participant was calibrated in Tobii Experience</span>
                     </label>
+                    </div>
                     <p id="calibration-error" class="form-error" role="alert"></p>
                     <div class="form-actions">
                       <p class="safety-note">Set browser zoom to 100%. Press ESC immediately if the participant feels dizzy or uncomfortable.</p>
@@ -97676,7 +97679,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         const calibration = { ...trial.calibration };
         const sessionId = `${moduleKey}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const target = window.location.origin && window.location.origin !== "null" ? window.location.origin : "*";
-        displayElement.innerHTML = `<iframe id="embed-frame" name="embed-page" title="${escapeHtml(spec.title)}"
+        displayElement.innerHTML = `<iframe id="embed-frame" name="embed-page" title="${escapeHtml(spec.title)}" allow="camera"
           style="position:fixed; inset:0; width:100vw; height:100vh; border:0; background:#000; z-index:50"></iframe>`;
         const frame = displayElement.querySelector("#embed-frame");
         if (EMBED_INLINE[moduleKey]) frame.srcdoc = EMBED_INLINE[moduleKey];      // client page: carried inside this file
