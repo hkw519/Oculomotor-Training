@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="dark">
   <meta name="referrer" content="no-referrer">
   <title>眼動訓練系統 · P02</title>
-  <meta name="release" content="P02 v1.1 base=dev 1358fe9 (peripheral awareness as in 4985563; client view hides the eye-tracking choice)">
+  <meta name="release" content="P02 v1.2 base=dev 4840090 (peripheral awareness as in 4985563; symptom ratings can be off, completion screen kept)">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800;900&display=swap" rel="stylesheet">
@@ -90567,10 +90567,10 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       zone: { enabled: false, offsetXDeg: 0, offsetYDeg: 0, rightDeg: 15, leftDeg: 15, upDeg: 10, downDeg: 10 },
       // 單眼區塊另設範圍：無複視，但受傷眼的上/右仍受限制，左/下可放寬
       zoneMono: { enabled: false, offsetXDeg: 0, offsetYDeg: 0, rightDeg: 15, leftDeg: 15, upDeg: 10, downDeg: 10 },
-      symptoms: { enabled: true, itemStop: 4, riseStop: 5, upload: false },
+      symptoms: { enabled: false, itemStop: 4, riseStop: 5, upload: false },
       preset: {
         blocks: [
-          {"module": "periph", "rounds": 1, "restSec": 30, "eye": "both", "settings": {"taskLevel": "3", "positions": "8", "rings": "1", "trials": 16}}
+          {"module": "periph", "rounds": 3, "restSec": 30, "eye": "both", "settings": {"taskLevel": "3", "positions": "8", "rings": "1", "trials": 16}}
         ]
       },
       lock: { locked: false, code: "" },
@@ -94996,6 +94996,22 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       constructor(jsPsych) { this.jsPsych = jsPsych; }
 
       trial(displayElement, trial) {
+        if (trial.kind === "done") {
+          // symptom ratings off: the finished plan still ends on the same "今日訓練完成" screen, without the rating form
+          AppState.symptom.showDone = false;
+          displayElement.innerHTML = `
+            <section class="app-page">
+              <div class="app-shell round-card">
+                ${appTopbar()}
+                <p class="eyebrow">Completed</p>
+                <h1>今日訓練完成</h1>
+                <p class="lede">辛苦了！請記得休息眼睛。</p>
+                <div class="round-actions"><button class="primary-button" type="button" data-continue>返回選單</button></div>
+              </div>
+            </section>`;
+          displayElement.querySelector("[data-continue]").addEventListener("click", () => this.jsPsych.finishTrial({ trial_type: "plan-complete" }));
+          return;
+        }
         const kind = trial.kind === "baseline" ? "baseline" : "post";
         const sym = AppState.symptom;
         const rules = AppState.profile.symptoms;
@@ -95438,6 +95454,7 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
       }
       sym.postContext = context;
       sym.needPost = symptomsOn && !preset.active; // 症狀檢核在整次訓練結束後 (兩次訓練之間)，不在區塊之間
+      sym.showDone = !symptomsOn && context.presetCompleted;   // ratings off: still show 今日訓練完成 at the end
     }
 
     // ════════════════════════════════════════════════════
@@ -97947,6 +97964,10 @@ var jsPsychWebgazerCalibrate=function(t){"use strict";var h="2.1.0";const _={nam
         {
           timeline: [{ type: SymptomCheckPlugin, kind: "post" }],
           conditional_function: () => Boolean(AppState.symptom.needPost && symptomsEnabled())
+        },
+        {
+          timeline: [{ type: SymptomCheckPlugin, kind: "done" }],
+          conditional_function: () => Boolean(AppState.symptom.showDone)
         }
       ],
       loop_function: () => true
